@@ -1,0 +1,7 @@
+# binary/ide
+.idea/
+__pycache__/
+
+
+# generated
+main_app.py
