@@ -3,7 +3,15 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 import main_app
 import csv
 import math
-import re
+import os
+
+
+class ResearchCalcErrors(Exception):
+    pass
+
+
+class ResearchAppErrors(Exception):
+    pass
 
 
 class ResearchCalc:
@@ -19,39 +27,46 @@ class ResearchCalc:
         :param data_array: Входной массив данных.
         :return: Массив из 5-ти элементов.
         """
-        m1, m2, m3, m4 = 0, 0, 0, 0
-        size = 0
-        for item in data_array:
-            # Гистограмма
-            if isinstance(item, list):
-                if len(item) != 2:
-                    return []
+        try:
+            if not all(isinstance(x, (int, float)) for x in data_array):
+                raise ResearchCalcErrors("Среди элементов списка присутсвуют строки. "
+                                         "Необходимо изменить входные данные на целые числа или числа с плавающей точкой.")
 
-                size += item[1]
-                m1 += item[1] * item[0]
-                m2 += item[1] * item[0] ** 2
-                m3 += item[1] * item[0] ** 3
-                m4 += item[1] * item[0] ** 4
-            # Массив
-            elif isinstance(item, float) or isinstance(item, int):
-                size = len(data_array)
-                m1 += item
-                m2 += item ** 2
-                m3 += item ** 3
-                m4 += item ** 4
+            m1, m2, m3, m4 = 0, 0, 0, 0
+            size = 0
+            for item in data_array:
+                # Гистограмма
+                if isinstance(item, list):
+                    if len(item) != 2:
+                        raise ResearchCalcErrors("Гистограмма задана неверно - ожидаемый вид [{число, кол-во}, ..., {число, кол-во}]")
 
-        # Вычисление моментов.
-        m1 /= size
-        m2 /= size
-        m3 /= size
-        m4 /= size
+                    size += item[1]
+                    m1 += item[1] * item[0]
+                    m2 += item[1] * item[0] ** 2
+                    m3 += item[1] * item[0] ** 3
+                    m4 += item[1] * item[0] ** 4
+                # Массив
+                elif isinstance(item, float) or isinstance(item, int):
+                    size = len(data_array)
+                    m1 += item
+                    m2 += item ** 2
+                    m3 += item ** 3
+                    m4 += item ** 4
 
-        # Вычисление семиинвариантов.
-        s1 = m1
-        s2 = m2 - m1 ** 2
-        s3 = m3 - 3 * m1 * m2 + 2 * m1 ** 3
-        s4 = m4 - 4 * m1 * m3 - 3 * m2 ** 2 + 12 * m1 ** 2 * m2 - 6 * m1 ** 4
-        return [s1, s2, s3, s4, size]
+            # Вычисление моментов.
+            m1 /= size
+            m2 /= size
+            m3 /= size
+            m4 /= size
+
+            # Вычисление семиинвариантов.
+            s1 = m1
+            s2 = m2 - m1 ** 2
+            s3 = m3 - 3 * m1 * m2 + 2 * m1 ** 3
+            s4 = m4 - 4 * m1 * m3 - 3 * m2 ** 2 + 12 * m1 ** 2 * m2 - 6 * m1 ** 4
+            return [s1, s2, s3, s4, size]
+        except ResearchCalcErrors as e:
+            print(e)
 
     @staticmethod
     def calc_three_points(semi_list: list) -> list:
@@ -61,15 +76,47 @@ class ResearchCalc:
         :param semi_list: Массив с семиинвариантами.
         :return: Среднее минимальное, среднее максимальное, среднее среднее.
         """
-        if len(semi_list) == 5:
-            xs, dd, aa, ee = semi_list[0], semi_list[1], semi_list[2] / semi_list[1] / 2., semi_list[3]
+        try:
+            if not len(semi_list) == 5:
+                raise ResearchCalcErrors("Количество элементов входного массива != 5.")
+
+            if not all(isinstance(x, (int, float)) for x in semi_list):
+                raise ResearchCalcErrors("В списке присутствуют не числа.")
+
+            xs = semi_list[0]
+            dd = semi_list[1]
+
+            if dd == 0:
+                raise ResearchCalcErrors("Дисперсия равна 0 - дальнейшие вычисления невозможны.")
+
+            aa = semi_list[2] / dd / 2.
+            ee = semi_list[3]
             ss = math.sqrt(dd)
+
             first = ee / (dd ** 2)
             second = (3. * (aa ** 2)) / dd
-            qq = math.sqrt(3 + first - second)
+            under_root = 3 + first - second
+
+            if under_root < 0:
+                raise ResearchCalcErrors("Подкоренное значение для q отрицательно - дальнейшие вычисления невозможны.")
+
+            qq = math.sqrt(under_root)
+
+            if qq == 0:
+                raise ResearchCalcErrors("Вспомогательная величина q = 0 - дальнейшие вычисления невозможны.")
+            if (qq - aa) == 0 or (qq + aa) == 0:
+                raise ResearchCalcErrors("Вспомогательная величина (q ± A) = 0 - дальнейшие вычисления невозможны.")
+
             x1, x2 = -ss * qq + xs + aa, ss * qq + xs + aa
             p1, p2 = ss / (2. * qq * (ss * qq - aa)), ss / (2. * qq * (ss * qq + aa))
-            return [[x1, p1], [xs, 1 - p1 - p2], [x2, p2]]
+            p3 = 1 - p1 - p2
+
+            if (p1 + p2 + p3) != 1:
+                raise ResearchCalcErrors("Сумма вероятностей не равна 1.")
+
+            return [[x1, p1], [xs, p3], [x2, p2]]
+        except ResearchCalcErrors as e:
+            print(e)
 
 
 class ResearchSignals(QtCore.QObject):
@@ -112,7 +159,7 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
         self.calculator = ResearchCalc()
 
         # Словарь для свойств.
-        self.properties_indexes = []
+        self.properties_indexes = {}
 
     def contextMenuEvent(self, event):
         """
@@ -187,22 +234,33 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
         :param prop: Свойство.
         :return: None
         """
+        # отказостойчивость - верная ошибка при незагруженной таблице
         self.propertylineEdit.clear()
+        self.properties_indexes.clear()
+
         indexes = self.tableView.selectionModel().selectedIndexes()
-        for idx in indexes:
-            item = idx.data()
-            # Проверка на числовое значение.
-            if str(item).isdigit():
-                # Добавление символа перед свойством.
-                if prop:
-                    self.propertylineEdit.insert(str(prop))
+        if len(indexes) != 1:
+            raise ResearchAppErrors("Выделено несколько элементов...")
 
-            # Добавление свойства.
-            self.propertylineEdit.insert(idx.data())
-            if indexes.index(idx) != len(indexes) - 1:
-                self.propertylineEdit.insert(", ")
+        # Выбранный элемент.
+        item = indexes[-1].data()
 
-        self.properties_indexes = indexes
+        # Добавленное свойство.
+        added_prop = ""
+        # Проверка на числовое значение.
+        if str(item).isdigit():
+            # Добавление символа перед свойством.
+            if prop:
+                added_prop += str(prop)
+                # Отображение текста в поле.
+                self.propertylineEdit.insert(str(prop))
+        else:
+            added_prop += item
+
+        # Отображение текста в поле.
+        self.propertylineEdit.insert(item)
+        # Добавление свойства в словарь: (Строка, Столбец): Свойство.
+        self.properties_indexes[(indexes[-1].row(), indexes[-1].column())] = added_prop
 
     @QtCore.pyqtSlot(int, int)
     def delete_rows_logic(self, row_number: int, rows_count: int):
@@ -215,14 +273,38 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
         """
         self.tableView.model().removeRows(row_number, rows_count)
 
+    def find_replace_comma(self) -> bool:
+        """
+        Функция поиска и замены запятых в ячейках таблицы.
+
+        :return: Если есть запятые и произведена замена - true, иначе - false.
+        """
+        bool_flag = False
+        model = self.tableView.model()
+        for row in range(model.rowCount()):
+            for column in range(model.columnCount()):
+                index = model.index(row, column)
+                datas = index.data()
+                data_help = datas.replace(",", ";")
+
+                if datas != data_help:
+                    datas = data_help
+                    bool_flag = True
+
+        return bool_flag
+
     def add_button_logic(self):
         """
         Обработчик нажатия на кнопку "Добавить".
 
         :return: None
         """
-        if self.tableView.model().columnCount() > 0:
+        try:
+            if not self.tableView.model().columnCount() > 0:
+                raise ResearchAppErrors("Таблица не загружена, добавление строк невозможно.")
             self.tableView.model().insertRow(self.tableView.model().rowCount(QtCore.QModelIndex()))
+        except ResearchAppErrors as e:
+            print(e)
 
     def load_button_logic(self):
         """
@@ -230,12 +312,23 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
 
         :return: None
         """
-        dialog_name = "Загрузка данных"
-        options = QtWidgets.QFileDialog.Options()
-        filename, _ = QtWidgets.QFileDialog.getOpenFileName(self, dialog_name, self.filedialog_path,
-                                                            "All types of docs (*.csv)", options=options)
+        try:
+            dialog_name = "Загрузка данных"
+            options = QtWidgets.QFileDialog.Options()
+            filename, _ = QtWidgets.QFileDialog.getOpenFileName(self, dialog_name, self.filedialog_path,
+                                                                "All types of docs (*.csv)", options=options)
 
-        if filename:
+            if not filename:
+                raise ResearchAppErrors("Файл не загружен.")
+
+            _, file_extension = os.path.splitext(filename)
+
+            if file_extension != '.csv':
+                raise ResearchAppErrors("Загружен файл неверного формата.")
+
+            if os.stat(filename).st_size == 0:
+                raise ResearchAppErrors("Загружен пустой файл - работа с ним невозможна.")
+
             self.table_model.clear()
             with open(filename, newline='') as File:
                 reader = csv.reader(File)
@@ -250,6 +343,8 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
                             items.append(QtGui.QStandardItem(field.strip()))
                         self.table_model.appendRow(items)
                 self.tableView.setModel(self.table_model)
+        except ResearchAppErrors as e:
+            print(e)
 
     def delete_button_logic(self):
         """
@@ -257,10 +352,19 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
 
         :return: None
         """
-        rows = self.tableView.selectionModel().selectedIndexes()
-        if rows:
+        try:
+            if not self.tableView.model().columnCount() > 0:
+                raise ResearchAppErrors("Таблица не загружена, удаление строк невозможно.")
+
+            rows = self.tableView.selectionModel().selectedIndexes()
+
+            if not rows:
+                raise ResearchAppErrors("Не выбрана строка для удаления.")
+
             for row in rows:
                 self.win_manager.delete_rows.emit(row.row(), len(rows))
+        except ResearchAppErrors as e:
+            print(e)
 
     def save_button_logic(self):
         """
@@ -268,41 +372,37 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
 
         :return: None
         """
-        dialog_name = "Сохранение данных"
-        options = QtWidgets.QFileDialog.Options()
-        filename, _ = QtWidgets.QFileDialog.getSaveFileName(self, dialog_name, self.filedialog_path,
-                                                            "All types of docs (*.csv)", options=options)
+        try:
+            if not self.tableView.model().columnCount() > 0:
+                raise ResearchAppErrors("Таблица не загружена и не создана - ее сохранение невозможно.")
 
-        if filename:
-            with open(filename, 'w', newline='') as File:
-                writer = csv.writer(File)
-                headers = []
-                for clm in range(self.tableView.model().columnCount()):
-                    headers.append(self.tableView.model().headerData(clm, QtCore.Qt.Orientation.Horizontal))
+            dialog_name = "Сохранение данных"
+            options = QtWidgets.QFileDialog.Options()
+            filename, _ = QtWidgets.QFileDialog.getSaveFileName(self, dialog_name, self.filedialog_path,
+                                                                "All types of docs (*.csv)", options=options)
 
-                # Запись заголовков.
-                writer.writerow(headers)
+            if filename:
+                if self.find_replace_comma():
+                    print('Произведена замена запятых при сохранении.')
 
-                model = self.tableView.model()
-                for row in range(model.rowCount()):
-                    row_data = []
-                    for column in range(model.columnCount()):
-                        index = model.index(row, column)
-                        row_data.append(model.data(index))
-                    writer.writerow(row_data)
+                with open(filename, 'w', newline='') as File:
+                    writer = csv.writer(File)
+                    headers = []
+                    for clm in range(self.tableView.model().columnCount()):
+                        headers.append(self.tableView.model().headerData(clm, QtCore.Qt.Orientation.Horizontal))
 
-    def parse_properties(self, properties: str):
-        """
-        Парсинг указанных свойств.
+                    # Запись заголовков.
+                    writer.writerow(headers)
 
-        :param properties: Свойства.
-        :return: None
-        """
-        splitted = [x.strip() for x in properties.split(',')]
-        for prop in splitted:
-            operation = re.match(r"([<>=]*)(\d*)", prop)
-
-
+                    model = self.tableView.model()
+                    for row in range(model.rowCount()):
+                        row_data = []
+                        for column in range(model.columnCount()):
+                            index = model.index(row, column)
+                            row_data.append(model.data(index))
+                        writer.writerow(row_data)
+        except ResearchAppErrors as e:
+            print(e)
 
     def calc_point_logic(self):
         """
@@ -310,23 +410,74 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
 
         :return: None
         """
-        # Анализ свойств.
-        properties = self.propertylineEdit.text()
-        self.parse_properties(properties)
+        # Нужные строки, подходящие под свойства.
+        correct_rows = []
+        correct_wage = []
 
-        # three_points = self.calculator.calc_three_points([4.875, 14.859, 84.199, 246.678, 8])
-        # float_precision = '.5f'
-        # avg_minimal = "[" + str(format(three_points[0][0], float_precision)) + \
-        #               ", " + str(format(three_points[0][1], float_precision)) + "]"
-        # self.ValueMinEdit.setText(avg_minimal)
-        #
-        # avg_middle = "[" + str(format(three_points[1][0], float_precision)) + \
-        #              ", " + str(format(three_points[1][1], float_precision)) + "]"
-        # self.ValueAvgEdit.setText(avg_middle)
-        #
-        # avg_maximal = "[" + str(format(three_points[2][0], float_precision)) + \
-        #               ", " + str(format(three_points[2][1], float_precision)) + "]"
-        # self.ValueMaxEdit.setText(avg_maximal)
+        # Получение заголовков.
+        headers = []
+        for clm in range(self.tableView.model().columnCount()):
+            headers.append(self.tableView.model().headerData(clm, QtCore.Qt.Orientation.Horizontal))
+
+        # Варианты названия колонки с ЗП.
+        wage_column_names = ["ЗП", "Заработная плата", "Зарплата"]
+
+        # Получения номера колонки с ЗП.
+        wage_col = None
+        for name in wage_column_names:
+            if name in headers:
+                wage_col = headers.index(name)
+
+        # Анализ столбца, указанного в свойстве.
+        prop_idx = list(self.properties_indexes.keys())[0]
+        prop_item = self.tableView.model().data(self.tableView.model().index(prop_idx[0], prop_idx[1]))
+        for row in range(self.tableView.model().rowCount()):
+            item = self.tableView.model().data(self.tableView.model().index(row, prop_idx[1]))
+            # Обработка числовых значений.
+            if str(item).isdigit():
+                operation = list(self.properties_indexes.values())[0]
+                if operation == ">=":
+                    if int(item) >= int(prop_item):
+                        correct_rows.append(row)
+                        wage = self.tableView.model().data(self.tableView.model().index(row, wage_col))
+                        if str(wage).isdigit():
+                            correct_wage.append(float(wage))
+                elif operation == "<=":
+                    if int(item) <= int(prop_item):
+                        correct_rows.append(row)
+                        wage = self.tableView.model().data(self.tableView.model().index(row, wage_col))
+                        if str(wage).isdigit():
+                            correct_wage.append(float(wage))
+                else:
+                    if int(item) == int(prop_item):
+                        correct_rows.append(row)
+                        wage = self.tableView.model().data(self.tableView.model().index(row, wage_col))
+                        if str(wage).isdigit():
+                            correct_wage.append(float(wage))
+            else:
+                if item == prop_item:
+                    correct_rows.append(row)
+                    wage = self.tableView.model().data(self.tableView.model().index(row, wage_col))
+                    if str(wage).isdigit():
+                        correct_wage.append(float(wage))
+
+        # Вычисление трехточки.
+        semi = self.calculator.calc_semi(correct_wage)
+        three_points = self.calculator.calc_three_points(semi)
+
+        # Вывод информации в поля.
+        float_precision = '.2f'
+        avg_minimal = "[" + str(format(three_points[0][0], float_precision)) + \
+                      ", " + str(format(three_points[0][1], float_precision)) + "]"
+        self.ValueMinEdit.setText(avg_minimal)
+
+        avg_middle = "[" + str(format(three_points[1][0], float_precision)) + \
+                     ", " + str(format(three_points[1][1], float_precision)) + "]"
+        self.ValueAvgEdit.setText(avg_middle)
+
+        avg_maximal = "[" + str(format(three_points[2][0], float_precision)) + \
+                      ", " + str(format(three_points[2][1], float_precision)) + "]"
+        self.ValueMaxEdit.setText(avg_maximal)
 
     def keyPressEvent(self, event):
         if event.key() == QtCore.Qt.Key.Key_F11:
