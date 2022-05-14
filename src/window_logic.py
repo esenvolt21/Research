@@ -1,9 +1,29 @@
 from PyQt5 import QtWidgets, QtCore, QtGui
+from enum import Enum
 
 import main_app
 import csv
 import math
 import os
+
+
+class ErrorCodes(Enum):
+    ERROR_STR_ARRAY = 0,
+    ERROR_TYPE_HISTOGRAM = 1,
+    ERROR_STR_HISTOGRAM = 2,
+    ERROR_ELEMENT_COUNT = 3,
+    ERROR_NOT_NUMERIC = 4,
+    ERROR_DISPERSION_ZERO = 5,
+    ERROR_UNDER_ROOT_NEGATIVE = 6,
+    ERROR_Q_ZERO = 7,
+    ERROR_Q_ECCENTRICITY = 8,
+    ERROR_PROBABILITY_NOT_1 = 9,
+    ERROR_MULTIPLE_ELEMENTS = 10,
+    ERROR_TABLE_NOT_LOADED = 11,
+    ERROR_FILE_NOT_LOADED = 12,
+    ERROR_INVALID_FILE_FORMAT = 13,
+    ERROR_EMPTY_FILE = 14,
+    ERROR_NO_LINE_SELECTED = 15
 
 
 class ResearchCalcErrors(Exception):
@@ -20,16 +40,18 @@ class ResearchCalc:
         super(ResearchCalc, self).__init__()
 
     @staticmethod
-    def calc_semi(data_array: list) -> list:
+    def calc_semi(data_array: list):
         """
         Вычисление четырех первых семиинвариантов для массива данных.
 
         :param data_array: Входной массив данных.
         :return: Массив из 5-ти элементов.
         """
+        exit_code = None
         try:
-            if not all(isinstance(x, (int, float)) for x in data_array):
-                raise ResearchCalcErrors("Среди элементов списка присутсвуют строки. "
+            if not all(isinstance(x, (int, float, list)) for x in data_array):
+                exit_code = ErrorCodes.ERROR_STR_ARRAY
+                raise ResearchCalcErrors("Среди элементов массива присутсвуют строки. "
                                          "Необходимо изменить входные данные на целые числа или числа с плавающей точкой.")
 
             m1, m2, m3, m4 = 0, 0, 0, 0
@@ -38,7 +60,15 @@ class ResearchCalc:
                 # Гистограмма
                 if isinstance(item, list):
                     if len(item) != 2:
+                        exit_code = ErrorCodes.ERROR_TYPE_HISTOGRAM
                         raise ResearchCalcErrors("Гистограмма задана неверно - ожидаемый вид [{число, кол-во}, ..., {число, кол-во}]")
+
+                    if len(item) == 2:
+                        for i in range(len(data_array)):
+                            if not all(isinstance(x, (int, float)) for x in data_array[i]):
+                                exit_code = ErrorCodes.ERROR_STR_HISTOGRAM
+                                raise ResearchCalcErrors("Среди элементов списка присутсвуют строки. "
+                                                         "Необходимо изменить входные данные на целые числа или числа с плавающей точкой.")
 
                     size += item[1]
                     m1 += item[1] * item[0]
@@ -67,26 +97,31 @@ class ResearchCalc:
             return [s1, s2, s3, s4, size]
         except ResearchCalcErrors as e:
             print(e)
+            return exit_code
 
     @staticmethod
-    def calc_three_points(semi_list: list) -> list:
+    def calc_three_points(semi_list: list):
         """
         Вычисление трехточки.
 
         :param semi_list: Массив с семиинвариантами.
         :return: Среднее минимальное, среднее максимальное, среднее среднее.
         """
+        exit_code = None
         try:
             if not len(semi_list) == 5:
+                exit_code = ErrorCodes.ERROR_ELEMENT_COUNT
                 raise ResearchCalcErrors("Количество элементов входного массива != 5.")
 
             if not all(isinstance(x, (int, float)) for x in semi_list):
+                exit_code = ErrorCodes.ERROR_NOT_NUMERIC
                 raise ResearchCalcErrors("В списке присутствуют не числа.")
 
             xs = semi_list[0]
             dd = semi_list[1]
 
             if dd == 0:
+                exit_code = ErrorCodes.ERROR_DISPERSION_ZERO
                 raise ResearchCalcErrors("Дисперсия равна 0 - дальнейшие вычисления невозможны.")
 
             aa = semi_list[2] / dd / 2.
@@ -98,13 +133,16 @@ class ResearchCalc:
             under_root = 3 + first - second
 
             if under_root < 0:
+                exit_code = ErrorCodes.ERROR_UNDER_ROOT_NEGATIVE
                 raise ResearchCalcErrors("Подкоренное значение для q отрицательно - дальнейшие вычисления невозможны.")
 
             qq = math.sqrt(under_root)
 
             if qq == 0:
+                exit_code = ErrorCodes.ERROR_Q_ZERO
                 raise ResearchCalcErrors("Вспомогательная величина q = 0 - дальнейшие вычисления невозможны.")
             if (qq - aa) == 0 or (qq + aa) == 0:
+                exit_code = ErrorCodes.ERROR_Q_ECCENTRICITY
                 raise ResearchCalcErrors("Вспомогательная величина (q ± A) = 0 - дальнейшие вычисления невозможны.")
 
             x1, x2 = -ss * qq + xs + aa, ss * qq + xs + aa
@@ -112,11 +150,13 @@ class ResearchCalc:
             p3 = 1 - p1 - p2
 
             if (p1 + p2 + p3) != 1:
+                exit_code = ErrorCodes.ERROR_PROBABILITY_NOT_1
                 raise ResearchCalcErrors("Сумма вероятностей не равна 1.")
 
             return [[x1, p1], [xs, p3], [x2, p2]]
         except ResearchCalcErrors as e:
             print(e)
+            return exit_code
 
 
 class ResearchSignals(QtCore.QObject):
@@ -240,6 +280,7 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
 
         indexes = self.tableView.selectionModel().selectedIndexes()
         if len(indexes) != 1:
+            exit_code = ErrorCodes.ERROR_MULTIPLE_ELEMENTS
             raise ResearchAppErrors("Выделено несколько элементов...")
 
         # Выбранный элемент.
@@ -299,12 +340,15 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
 
         :return: None
         """
+        exit_code = None
         try:
             if not self.tableView.model().columnCount() > 0:
+                exit_code = ErrorCodes.ERROR_TABLE_NOT_LOADED
                 raise ResearchAppErrors("Таблица не загружена, добавление строк невозможно.")
             self.tableView.model().insertRow(self.tableView.model().rowCount(QtCore.QModelIndex()))
         except ResearchAppErrors as e:
             print(e)
+            return exit_code
 
     def load_button_logic(self):
         """
@@ -312,6 +356,7 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
 
         :return: None
         """
+        exit_code = None
         try:
             dialog_name = "Загрузка данных"
             options = QtWidgets.QFileDialog.Options()
@@ -319,14 +364,17 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
                                                                 "All types of docs (*.csv)", options=options)
 
             if not filename:
+                exit_code = ErrorCodes.ERROR_FILE_NOT_LOADED
                 raise ResearchAppErrors("Файл не загружен.")
 
             _, file_extension = os.path.splitext(filename)
 
             if file_extension != '.csv':
+                exit_code = ErrorCodes.ERROR_INVALID_FILE_FORMAT
                 raise ResearchAppErrors("Загружен файл неверного формата.")
 
             if os.stat(filename).st_size == 0:
+                exit_code = ErrorCodes.ERROR_EMPTY_FILE
                 raise ResearchAppErrors("Загружен пустой файл - работа с ним невозможна.")
 
             self.table_model.clear()
@@ -345,6 +393,7 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
                 self.tableView.setModel(self.table_model)
         except ResearchAppErrors as e:
             print(e)
+            return exit_code
 
     def delete_button_logic(self):
         """
@@ -352,19 +401,23 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
 
         :return: None
         """
+        exit_code = None
         try:
             if not self.tableView.model().columnCount() > 0:
+                exit_code = ErrorCodes.ERROR_TABLE_NOT_LOADED
                 raise ResearchAppErrors("Таблица не загружена, удаление строк невозможно.")
 
             rows = self.tableView.selectionModel().selectedIndexes()
 
             if not rows:
+                exit_code = ErrorCodes.ERROR_NO_LINE_SELECTED
                 raise ResearchAppErrors("Не выбрана строка для удаления.")
 
             for row in rows:
                 self.win_manager.delete_rows.emit(row.row(), len(rows))
         except ResearchAppErrors as e:
             print(e)
+            return exit_code
 
     def save_button_logic(self):
         """
@@ -372,8 +425,10 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
 
         :return: None
         """
+        exit_code = None
         try:
             if not self.tableView.model().columnCount() > 0:
+                exit_code = ErrorCodes.ERROR_TABLE_NOT_LOADED
                 raise ResearchAppErrors("Таблица не загружена и не создана - ее сохранение невозможно.")
 
             dialog_name = "Сохранение данных"
@@ -403,6 +458,7 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
                         writer.writerow(row_data)
         except ResearchAppErrors as e:
             print(e)
+            return exit_code
 
     def calc_point_logic(self):
         """
@@ -460,6 +516,8 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
                     wage = self.tableView.model().data(self.tableView.model().index(row, wage_col))
                     if str(wage).isdigit():
                         correct_wage.append(float(wage))
+
+        correct_wage = [[2, 0], [3, 5], [4, 14], [5, 6]]
 
         # Вычисление трехточки.
         semi = self.calculator.calc_semi(correct_wage)
