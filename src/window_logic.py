@@ -1,4 +1,5 @@
 from PyQt5 import QtWidgets, QtCore, QtGui
+from PyQt5.QtCore import Qt
 from enum import Enum
 
 import main_app
@@ -295,6 +296,11 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
                 added_prop += str(prop)
                 # Отображение текста в поле.
                 self.propertylineEdit.insert(str(prop))
+                self.propertylineEdit.setAlignment(Qt.AlignCenter)
+                self.propertylineEdit.setStyleSheet("border-radius: 20px;\n"
+                                                    "background-color: rgba(255, 255, 255,0);\n"
+                                                    "font: 12pt \"Century Gothic\";\n"
+                                                    )
         else:
             added_prop += item
 
@@ -391,6 +397,9 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
                             items.append(QtGui.QStandardItem(field.strip()))
                         self.table_model.appendRow(items)
                 self.tableView.setModel(self.table_model)
+            self.tableView.setStyleSheet("border-radius: 20px;\n"
+                                         "background-color: rgb(255, 255, 255);\n"
+                                         "font: 10pt \"Century Gothic\";")
         except ResearchAppErrors as e:
             print(e)
             return exit_code

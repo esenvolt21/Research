@@ -44,7 +44,7 @@
    <string>Statistical compression of one-dimential arrays</string>
   </property>
   <property name="styleSheet">
-   <string notr="true">background-color: qlineargradient(spread:pad, x1:0.233677, y1:0.25, x2:1, y2:1, stop:0 rgba(205, 103, 255, 255), stop:1 rgba(255, 255, 255, 255));</string>
+   <string notr="true">background-color: qlineargradient(spread:pad, x1:0.503, y1:0.994318, x2:0.478, y2:0, stop:0 rgba(195, 134, 255, 255), stop:1 rgba(255, 255, 255, 255));</string>
   </property>
   <property name="animated">
    <bool>true</bool>
@@ -76,7 +76,8 @@
             </property>
             <property name="styleSheet">
              <string notr="true">background-color: rgba(255, 255, 255, 0);
-font: 75 italic 26pt &quot;Century Gothic&quot;;</string>
+font: 75 italic 26pt &quot;Century Gothic&quot;;
+</string>
             </property>
             <property name="text">
              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-size:20pt;&quot;&gt;Исходные данные&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -90,7 +91,8 @@ font: 75 italic 26pt &quot;Century Gothic&quot;;</string>
       <item>
        <widget class="QTableView" name="tableView">
         <property name="styleSheet">
-         <string notr="true">background-color: rgba(255, 255, 255, 0);</string>
+         <string notr="true">background-color: rgb(255, 255, 255);
+font: 10pt &quot;Century Gothic&quot;;</string>
         </property>
        </widget>
       </item>
@@ -122,13 +124,14 @@ font: 75 italic 26pt &quot;Century Gothic&quot;;</string>
           </property>
           <property name="minimumSize">
            <size>
-            <width>150</width>
-            <height>35</height>
+            <width>200</width>
+            <height>40</height>
            </size>
           </property>
           <property name="styleSheet">
-           <string notr="true">border-radius: 80px;
-background-color: qlineargradient(spread:pad, x1:0.512438, y1:0.233, x2:0.508025, y2:0.744, stop:0 rgba(121, 255, 255, 255), stop:1 rgba(255, 255, 255, 255));
+           <string notr="true">border-radius: 20px;
+background-color: qlineargradient(spread:pad, x1:0, y1:0.483, x2:1, y2:0.523, stop:0 rgba(255, 255, 85, 255), stop:1 rgba(255, 255, 255, 255));
+font: 12pt &quot;Century Gothic&quot;;
 
 </string>
           </property>
@@ -147,12 +150,14 @@ background-color: qlineargradient(spread:pad, x1:0.512438, y1:0.233, x2:0.508025
           </property>
           <property name="minimumSize">
            <size>
-            <width>150</width>
-            <height>35</height>
+            <width>200</width>
+            <height>40</height>
            </size>
           </property>
           <property name="styleSheet">
-           <string notr="true">background-color: rgb(255, 255, 255);</string>
+           <string notr="true">border-radius: 20px;
+background-color: qlineargradient(spread:pad, x1:0.985, y1:0.506, x2:0.00995025, y2:0.495, stop:0 rgba(255, 255, 85, 255), stop:1 rgba(255, 255, 255, 255));
+font: 12pt &quot;Century Gothic&quot;;</string>
           </property>
           <property name="text">
            <string>Добавить данные</string>
@@ -169,12 +174,14 @@ background-color: qlineargradient(spread:pad, x1:0.512438, y1:0.233, x2:0.508025
           </property>
           <property name="minimumSize">
            <size>
-            <width>150</width>
-            <height>35</height>
+            <width>200</width>
+            <height>40</height>
            </size>
           </property>
           <property name="styleSheet">
-           <string notr="true">background-color: rgb(255, 255, 255);</string>
+           <string notr="true">border-radius: 20px;
+background-color: qlineargradient(spread:pad, x1:0, y1:0.483, x2:1, y2:0.523, stop:0 rgba(255, 255, 85, 255), stop:1 rgba(255, 255, 255, 255));
+font: 12pt &quot;Century Gothic&quot;;</string>
           </property>
           <property name="text">
            <string>Удалить данные</string>
@@ -191,12 +198,14 @@ background-color: qlineargradient(spread:pad, x1:0.512438, y1:0.233, x2:0.508025
           </property>
           <property name="minimumSize">
            <size>
-            <width>150</width>
-            <height>35</height>
+            <width>200</width>
+            <height>40</height>
            </size>
           </property>
           <property name="styleSheet">
-           <string notr="true">background-color: rgb(255, 255, 255);</string>
+           <string notr="true">border-radius: 20px;
+background-color: qlineargradient(spread:pad, x1:0.985, y1:0.506, x2:0.00995025, y2:0.495, stop:0 rgba(255, 255, 85, 255), stop:1 rgba(255, 255, 255, 255));
+font: 12pt &quot;Century Gothic&quot;;</string>
           </property>
           <property name="text">
            <string>Сохранить данные</string>
@@ -259,11 +268,15 @@ background-color: qlineargradient(spread:pad, x1:0.512438, y1:0.233, x2:0.508025
             <property name="minimumSize">
              <size>
               <width>250</width>
-              <height>35</height>
+              <height>50</height>
              </size>
             </property>
             <property name="styleSheet">
-             <string notr="true">background-color: rgb(255, 255, 255);</string>
+             <string notr="true">border-radius: 20px;
+background-color: rgba(255, 255, 255,0);
+font: 8pt &quot;Century Gothic&quot;;
+text-align: center
+</string>
             </property>
            </widget>
           </item>
@@ -277,13 +290,14 @@ background-color: qlineargradient(spread:pad, x1:0.512438, y1:0.233, x2:0.508025
             </property>
             <property name="minimumSize">
              <size>
-              <width>250</width>
+              <width>300</width>
               <height>50</height>
              </size>
             </property>
             <property name="styleSheet">
-             <string notr="true">border-radius: 50px;
-background-color: rgb(255, 255, 255);</string>
+             <string notr="true">border-radius: 20px;
+background-color: qlineargradient(spread:pad, x1:0, y1:0.988636, x2:1, y2:0, stop:0 rgba(102, 255, 255, 255), stop:1 rgba(255, 255, 255, 255));
+font: 75 12pt &quot;Segoe Script&quot;;</string>
             </property>
             <property name="text">
              <string>Рассчитать трехточку</string>
@@ -337,17 +351,22 @@ background-color: rgb(255, 255, 255);</string>
                 </property>
                 <property name="minimumSize">
                  <size>
-                  <width>250</width>
+                  <width>300</width>
                   <height>21</height>
                  </size>
                 </property>
                 <property name="font">
                  <font>
-                  <family>Acquainted</family>
+                  <family>Segoe Script</family>
+                  <pointsize>12</pointsize>
+                  <weight>9</weight>
+                  <italic>false</italic>
+                  <bold>false</bold>
                  </font>
                 </property>
                 <property name="styleSheet">
-                 <string notr="true">background-color:rgba(255, 255, 255, 0);</string>
+                 <string notr="true">background-color:rgba(255, 255, 255, 0);
+font: 75 12pt &quot;Segoe Script&quot;;</string>
                 </property>
                 <property name="text">
                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-size:14pt;&quot;&gt;Среднее минимальное&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -401,17 +420,22 @@ background-color: rgb(255, 255, 255);</string>
                 </property>
                 <property name="minimumSize">
                  <size>
-                  <width>250</width>
+                  <width>300</width>
                   <height>21</height>
                  </size>
                 </property>
                 <property name="font">
                  <font>
-                  <family>Acquainted</family>
+                  <family>Segoe Script</family>
+                  <pointsize>12</pointsize>
+                  <weight>9</weight>
+                  <italic>false</italic>
+                  <bold>false</bold>
                  </font>
                 </property>
                 <property name="styleSheet">
-                 <string notr="true">background-color:rgba(255, 255, 255, 0);</string>
+                 <string notr="true">background-color:rgba(255, 255, 255, 0);
+font: 75 12pt &quot;Segoe Script&quot;;</string>
                 </property>
                 <property name="text">
                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:14pt;&quot;&gt;Среднее&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -468,17 +492,22 @@ background-color: rgb(255, 255, 255);</string>
                 </property>
                 <property name="minimumSize">
                  <size>
-                  <width>250</width>
+                  <width>300</width>
                   <height>21</height>
                  </size>
                 </property>
                 <property name="font">
                  <font>
-                  <family>Acquainted</family>
+                  <family>Segoe Script</family>
+                  <pointsize>12</pointsize>
+                  <weight>9</weight>
+                  <italic>false</italic>
+                  <bold>false</bold>
                  </font>
                 </property>
                 <property name="styleSheet">
-                 <string notr="true">background-color: rgba(255, 255, 255, 0);</string>
+                 <string notr="true">background-color: rgba(255, 255, 255, 0);
+font: 75 12pt &quot;Segoe Script&quot;;</string>
                 </property>
                 <property name="text">
                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-size:14pt;&quot;&gt;Среднее максимальное&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
