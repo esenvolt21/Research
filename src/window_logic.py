@@ -545,6 +545,22 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
         avg_maximal = "[" + str(format(three_points[2][0], float_precision)) + \
                       ", " + str(format(three_points[2][1], float_precision)) + "]"
         self.ValueMaxEdit.setText(avg_maximal)
+        self.ValueMinEdit.setAlignment(Qt.AlignCenter)
+        self.ValueMinEdit.setStyleSheet("border-radius: 20px;\n"
+                                            "background-color: rgba(255, 255, 255,0);\n"
+                                            "font: 12pt \"Century Gothic\";\n"
+                                        )
+        self.ValueAvgEdit.setAlignment(Qt.AlignCenter)
+        self.ValueAvgEdit.setStyleSheet("border-radius: 20px;\n"
+                                            "background-color: rgba(255, 255, 255,0);\n"
+                                            "font: 12pt \"Century Gothic\";\n"
+                                        )
+
+        self.ValueMaxEdit.setAlignment(Qt.AlignCenter)
+        self.ValueMaxEdit.setStyleSheet("border-radius: 20px;\n"
+                                            "background-color: rgba(255, 255, 255,0);\n"
+                                            "font: 12pt \"Century Gothic\";\n"
+                                        )
 
     def keyPressEvent(self, event):
         if event.key() == QtCore.Qt.Key.Key_F11:
