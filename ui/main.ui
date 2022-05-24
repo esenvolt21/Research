@@ -159,12 +159,21 @@ font: 75 italic 26pt &quot;Century Gothic&quot;;
                  <height>30</height>
                 </size>
                </property>
+               <property name="styleSheet">
+                <string notr="true">QPushButton#CloseButton{
+border-image: url(:/images/Group 84.png);
+}
+
+QPushButton#CloseButton:hover{
+border-image: url(:/images/Group 85.png);
+}
+
+QPushButton#CloseButton:pressed{
+border-image: url(:/images/Group 85.png);
+}</string>
+               </property>
                <property name="text">
                 <string/>
-               </property>
-               <property name="icon">
-                <iconset resource="../res.qrc">
-                 <normaloff>:/images/Group 84.png</normaloff>:/images/Group 84.png</iconset>
                </property>
               </widget>
              </item>

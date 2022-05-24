@@ -179,6 +179,7 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
         self.DeleteButton.clicked.connect(self.delete_button_logic)
         self.SaveButton.clicked.connect(self.save_button_logic)
         self.PointButton.clicked.connect(self.calc_point_logic)
+        self.CloseButton.clicked.connect(self.close_logic)
 
         # Поля.
         self.ValueAvgEdit.setPlaceholderText("Результат среднего")
@@ -244,6 +245,19 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
 
         self.context_menu.popup(QtGui.QCursor.pos())
 
+    def getting_headers(self):
+        """
+        Получение заголовков
+
+        :return: list
+        """
+        # Получение заголовков.
+        headers = []
+        for clm in range(self.tableView.model().columnCount()):
+            headers.append(self.tableView.model().headerData(clm, QtCore.Qt.Orientation.Horizontal))
+
+        return headers
+
     def equal_property(self):
         """
         Рассчитать для значений "равно"...
@@ -275,7 +289,6 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
         :param prop: Свойство.
         :return: None
         """
-        # отказостойчивость - верная ошибка при незагруженной таблице
         self.propertylineEdit.clear()
         self.properties_indexes.clear()
 
@@ -284,10 +297,14 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
             exit_code = ErrorCodes.ERROR_MULTIPLE_ELEMENTS
             raise ResearchAppErrors("Выделено несколько элементов...")
 
+        # Получение заголовков.
+        headers = self.getting_headers()
+
         # Выбранный элемент.
         item = indexes[-1].data()
 
         # Добавленное свойство.
+        added_prop_view = str(headers[indexes[-1].column()])
         added_prop = ""
         # Проверка на числовое значение.
         if str(item).isdigit():
@@ -296,16 +313,16 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
                 added_prop += str(prop)
                 # Отображение текста в поле.
                 self.propertylineEdit.insert(str(prop))
-                self.propertylineEdit.setAlignment(Qt.AlignCenter)
-                self.propertylineEdit.setStyleSheet("border-radius: 20px;\n"
-                                                    "background-color: rgba(255, 255, 255,0);\n"
-                                                    "font: 12pt \"Century Gothic\";\n"
-                                                    )
         else:
             added_prop += item
 
         # Отображение текста в поле.
         self.propertylineEdit.insert(item)
+        self.propertylineEdit.setAlignment(Qt.AlignCenter)
+        self.propertylineEdit.setStyleSheet("border-radius: 20px;\n"
+                                            "background-color: rgba(255, 255, 255,0);\n"
+                                            "font: 12pt \"Century Gothic\";\n"
+                                            )
         # Добавление свойства в словарь: (Строка, Столбец): Свойство.
         self.properties_indexes[(indexes[-1].row(), indexes[-1].column())] = added_prop
 
@@ -480,9 +497,7 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
         correct_wage = []
 
         # Получение заголовков.
-        headers = []
-        for clm in range(self.tableView.model().columnCount()):
-            headers.append(self.tableView.model().headerData(clm, QtCore.Qt.Orientation.Horizontal))
+        headers = self.getting_headers()
 
         # Варианты названия колонки с ЗП.
         wage_column_names = ["ЗП", "Заработная плата", "Зарплата"]
@@ -561,6 +576,9 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
                                             "background-color: rgba(255, 255, 255,0);\n"
                                             "font: 12pt \"Century Gothic\";\n"
                                         )
+
+    def close_logic(self):
+        self.close()
 
     def keyPressEvent(self, event):
         if event.key() == QtCore.Qt.Key.Key_F11:
