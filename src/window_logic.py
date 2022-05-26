@@ -6,6 +6,7 @@ import main_app
 import csv
 import math
 import os
+import json
 
 
 class ErrorCodes(Enum):
@@ -25,6 +26,9 @@ class ErrorCodes(Enum):
     ERROR_INVALID_FILE_FORMAT = 13,
     ERROR_EMPTY_FILE = 14,
     ERROR_NO_LINE_SELECTED = 15
+    ERROR_NOT_PROPERTY = 16
+    ERROR_NOT_MONEY = 17
+    ERROR_POINT_NOT_LOADED = 18
 
 
 class ResearchCalcErrors(Exception):
@@ -175,17 +179,22 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
 
         # Обработчики кнопок.
         self.AddButton.clicked.connect(self.add_button_logic)
+        self.AddButton.setGraphicsEffect(QtWidgets.QGraphicsDropShadowEffect(blurRadius=15, xOffset=-3, yOffset=3))
         self.DownloadButton.clicked.connect(self.load_button_logic)
+        self.DownloadButton.setGraphicsEffect(QtWidgets.QGraphicsDropShadowEffect(blurRadius=15, xOffset=-3, yOffset=3))
         self.DeleteButton.clicked.connect(self.delete_button_logic)
+        self.DeleteButton.setGraphicsEffect(QtWidgets.QGraphicsDropShadowEffect(blurRadius=15, xOffset=3, yOffset=3))
         self.SaveButton.clicked.connect(self.save_button_logic)
+        self.SaveButton.setGraphicsEffect(QtWidgets.QGraphicsDropShadowEffect(blurRadius=15, xOffset=3, yOffset=3))
         self.PointButton.clicked.connect(self.calc_point_logic)
+        self.PointButton.setGraphicsEffect(QtWidgets.QGraphicsDropShadowEffect(blurRadius=25, xOffset=3, yOffset=3))
         self.CloseButton.clicked.connect(self.close_logic)
-
-        # Поля.
-        self.ValueAvgEdit.setPlaceholderText("Результат среднего")
-        self.ValueMaxEdit.setPlaceholderText("Результат максимального")
-        self.ValueMinEdit.setPlaceholderText("Результат минимального")
-        self.propertylineEdit.setPlaceholderText("Выберите свойство для расчета")
+        self.SavePointButton.clicked.connect(self.save_point_logic)
+        self.SavePointButton.setGraphicsEffect(QtWidgets.QGraphicsDropShadowEffect(blurRadius=25, xOffset=3, yOffset=3))
+        self.LoadPointButton.clicked.connect(self.load_point_logic)
+        self.LoadPointButton.setGraphicsEffect(QtWidgets.QGraphicsDropShadowEffect(blurRadius=15, xOffset=-3, yOffset=3))
+        self.CalcPointButton.clicked.connect(self.calc_join_point_logic)
+        self.CalcPointButton.setGraphicsEffect(QtWidgets.QGraphicsDropShadowEffect(blurRadius=15, xOffset=3, yOffset=3))
 
         # Таблица.
         self.table_model = QtGui.QStandardItemModel()
@@ -202,6 +211,9 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
 
         # Словарь для свойств.
         self.properties_indexes = {}
+
+        # Словарь для сохранения трехточки.
+        self.dict_data = {}
 
     def contextMenuEvent(self, event):
         """
@@ -304,23 +316,23 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
         item = indexes[-1].data()
 
         # Добавленное свойство.
-        added_prop_view = str(headers[indexes[-1].column()])
+        added_prop_view = str(headers[indexes[-1].column()]) + ": "
         added_prop = ""
         # Проверка на числовое значение.
         if str(item).isdigit():
             # Добавление символа перед свойством.
             if prop:
                 added_prop += str(prop)
-                # Отображение текста в поле.
-                self.propertylineEdit.insert(str(prop))
+                added_prop_view += str(prop) + item
         else:
             added_prop += item
+            added_prop_view += item
 
         # Отображение текста в поле.
-        self.propertylineEdit.insert(item)
+        self.propertylineEdit.insert(added_prop_view)
         self.propertylineEdit.setAlignment(Qt.AlignCenter)
         self.propertylineEdit.setStyleSheet("border-radius: 20px;\n"
-                                            "background-color: rgba(255, 255, 255,0);\n"
+                                            "background-color: rgba(255, 255, 255, 50);\n"
                                             "font: 12pt \"Century Gothic\";\n"
                                             )
         # Добавление свойства в словарь: (Строка, Столбец): Свойство.
@@ -352,7 +364,7 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
                 data_help = datas.replace(",", ";")
 
                 if datas != data_help:
-                    datas = data_help
+                    model.setData(index, data_help)
                     bool_flag = True
 
         return bool_flag
@@ -492,100 +504,176 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
 
         :return: None
         """
-        # Нужные строки, подходящие под свойства.
-        correct_rows = []
-        correct_wage = []
+        exit_code = None
+        try:
+            if not self.properties_indexes:
+                exit_code = ErrorCodes.ERROR_NOT_PROPERTY
+                raise ResearchAppErrors("Не выбрано свойство для расчета трехточки.")
 
-        # Получение заголовков.
-        headers = self.getting_headers()
+            # Нужные строки, подходящие под свойства.
+            correct_rows = []
+            correct_wage = []
 
-        # Варианты названия колонки с ЗП.
-        wage_column_names = ["ЗП", "Заработная плата", "Зарплата"]
+            # Получение заголовков.
+            headers = self.getting_headers()
 
-        # Получения номера колонки с ЗП.
-        wage_col = None
-        for name in wage_column_names:
-            if name in headers:
-                wage_col = headers.index(name)
+            # Варианты названия колонки с ЗП.
+            wage_column_names = ["ЗП", "Заработная плата", "Зарплата"]
 
-        # Анализ столбца, указанного в свойстве.
-        prop_idx = list(self.properties_indexes.keys())[0]
-        prop_item = self.tableView.model().data(self.tableView.model().index(prop_idx[0], prop_idx[1]))
-        for row in range(self.tableView.model().rowCount()):
-            item = self.tableView.model().data(self.tableView.model().index(row, prop_idx[1]))
-            # Обработка числовых значений.
-            if str(item).isdigit():
-                operation = list(self.properties_indexes.values())[0]
-                if operation == ">=":
-                    if int(item) >= int(prop_item):
-                        correct_rows.append(row)
-                        wage = self.tableView.model().data(self.tableView.model().index(row, wage_col))
-                        if str(wage).isdigit():
-                            correct_wage.append(float(wage))
-                elif operation == "<=":
-                    if int(item) <= int(prop_item):
-                        correct_rows.append(row)
-                        wage = self.tableView.model().data(self.tableView.model().index(row, wage_col))
-                        if str(wage).isdigit():
-                            correct_wage.append(float(wage))
+            # Получения номера колонки с ЗП.
+            wage_col = None
+            for name in wage_column_names:
+                if name in headers:
+                    wage_col = headers.index(name)
+
+            if wage_col is None:
+                self.ValuePointEdit.setText("Внимание! В таблице нет столбца \"Заработная плата\" - расчет невозможен.")
+                self.ValuePointEdit.setAlignment(Qt.AlignCenter)
+                self.ValuePointEdit.setStyleSheet("border-radius: 20px;\n"
+                                                    "background-color: rgba(255, 255, 255, 50);\n"
+                                                    "font: 12pt \"Century Gothic\";\n"
+                                                    )
+                exit_code = ErrorCodes.ERROR_NOT_MONEY
+                raise ResearchAppErrors("Внимание! В таблице нет столбца ЗП(заработная плата).")
+
+            # Анализ столбца, указанного в свойстве.
+            prop_idx = list(self.properties_indexes.keys())[0]
+            prop_item = self.tableView.model().data(self.tableView.model().index(prop_idx[0], prop_idx[1]))
+            for row in range(self.tableView.model().rowCount()):
+                item = self.tableView.model().data(self.tableView.model().index(row, prop_idx[1]))
+                # Обработка числовых значений.
+                if str(item).isdigit():
+                    operation = list(self.properties_indexes.values())[0]
+                    if operation == ">=":
+                        if int(item) >= int(prop_item):
+                            correct_rows.append(row)
+                            wage = self.tableView.model().data(self.tableView.model().index(row, wage_col))
+                            if str(wage).isdigit():
+                                correct_wage.append(float(wage))
+                    elif operation == "<=":
+                        if int(item) <= int(prop_item):
+                            correct_rows.append(row)
+                            wage = self.tableView.model().data(self.tableView.model().index(row, wage_col))
+                            if str(wage).isdigit():
+                                correct_wage.append(float(wage))
+                    else:
+                        if int(item) == int(prop_item):
+                            correct_rows.append(row)
+                            wage = self.tableView.model().data(self.tableView.model().index(row, wage_col))
+                            if str(wage).isdigit():
+                                correct_wage.append(float(wage))
                 else:
-                    if int(item) == int(prop_item):
+                    if item == prop_item:
                         correct_rows.append(row)
                         wage = self.tableView.model().data(self.tableView.model().index(row, wage_col))
                         if str(wage).isdigit():
                             correct_wage.append(float(wage))
+
+            # Вычисление трехточки.
+            correct_len = 3
+            if len(correct_rows) > correct_len and len(correct_wage) > correct_len:
+                semi = self.calculator.calc_semi(correct_wage)
+                three_points = self.calculator.calc_three_points(semi)
+
+                float_precision = '.2f'
+                avg_minimal = "[" + str(format(three_points[0][0], float_precision)) + \
+                              ", " + str(format(three_points[0][1], float_precision)) + "]"
+                avg_middle = "[" + str(format(three_points[1][0], float_precision)) + \
+                             ", " + str(format(three_points[1][1], float_precision)) + "]"
+                avg_maximal = "[" + str(format(three_points[2][0], float_precision)) + \
+                              ", " + str(format(three_points[2][1], float_precision)) + "]"
+
+                self.dict_data = {"Min:": avg_minimal,
+                            "Avg:": avg_middle,
+                            "Max:": avg_maximal}
+
+                # Вывод информации в поля.
+                self.ValuePointEdit.setText("Min: " + avg_minimal + "\tAvg: " + avg_middle + "\tMax: " + avg_maximal)
+                self.ValuePointEdit.setAlignment(Qt.AlignCenter)
+                self.ValuePointEdit.setStyleSheet("border-radius: 20px;\n"
+                                                    "background-color: rgba(255, 255, 255, 50);\n"
+                                                    "font: 12pt \"Century Gothic\";\n"
+                                                )
             else:
-                if item == prop_item:
-                    correct_rows.append(row)
-                    wage = self.tableView.model().data(self.tableView.model().index(row, wage_col))
-                    if str(wage).isdigit():
-                        correct_wage.append(float(wage))
-
-        correct_wage = [[2, 0], [3, 5], [4, 14], [5, 6]]
-
-        # Вычисление трехточки.
-        semi = self.calculator.calc_semi(correct_wage)
-        three_points = self.calculator.calc_three_points(semi)
-
-        # Вывод информации в поля.
-        float_precision = '.2f'
-        avg_minimal = "[" + str(format(three_points[0][0], float_precision)) + \
-                      ", " + str(format(three_points[0][1], float_precision)) + "]"
-        self.ValueMinEdit.setText(avg_minimal)
-
-        avg_middle = "[" + str(format(three_points[1][0], float_precision)) + \
-                     ", " + str(format(three_points[1][1], float_precision)) + "]"
-        self.ValueAvgEdit.setText(avg_middle)
-
-        avg_maximal = "[" + str(format(three_points[2][0], float_precision)) + \
-                      ", " + str(format(three_points[2][1], float_precision)) + "]"
-        self.ValueMaxEdit.setText(avg_maximal)
-        self.ValueMinEdit.setAlignment(Qt.AlignCenter)
-        self.ValueMinEdit.setStyleSheet("border-radius: 20px;\n"
-                                            "background-color: rgba(255, 255, 255,0);\n"
-                                            "font: 12pt \"Century Gothic\";\n"
-                                        )
-        self.ValueAvgEdit.setAlignment(Qt.AlignCenter)
-        self.ValueAvgEdit.setStyleSheet("border-radius: 20px;\n"
-                                            "background-color: rgba(255, 255, 255,0);\n"
-                                            "font: 12pt \"Century Gothic\";\n"
-                                        )
-
-        self.ValueMaxEdit.setAlignment(Qt.AlignCenter)
-        self.ValueMaxEdit.setStyleSheet("border-radius: 20px;\n"
-                                            "background-color: rgba(255, 255, 255,0);\n"
-                                            "font: 12pt \"Century Gothic\";\n"
-                                        )
+                self.ValuePointEdit.setText("Внимание! Расчёт не возможен.")
+                self.ValuePointEdit.setAlignment(Qt.AlignCenter)
+                self.ValuePointEdit.setStyleSheet("border-radius: 20px;\n"
+                                                  "background-color: rgba(255, 255, 255, 50);\n"
+                                                  "font: 12pt \"Century Gothic\";\n"
+                                                  )
+        except ResearchAppErrors as e:
+            print(e)
+            return exit_code
 
     def close_logic(self):
         self.close()
 
-    def keyPressEvent(self, event):
-        if event.key() == QtCore.Qt.Key.Key_F11:
-            if self.isMaximized():
-                self.showNormal()
-            else:
-                self.showMaximized()
+    def save_point_logic(self):
+        exit_code = None
+        try:
+            str_point = self.ValuePointEdit.text()
+            if not len(str_point) > 0:
+                self.ValuePointEdit.setText("Внимание! Расчетов нет - сохранение невозможно.")
+                self.ValuePointEdit.setAlignment(Qt.AlignCenter)
+                self.ValuePointEdit.setStyleSheet("border-radius: 20px;\n"
+                                                   "background-color: rgba(255, 255, 255, 50);\n"
+                                                  "font: 12pt \"Century Gothic\";\n"
+                                                  )
+                exit_code = ErrorCodes.ERROR_POINT_NOT_LOADED
+                raise ResearchAppErrors("Расчетов нет - сохранение невозможно.")
 
+            dialog_name = "Сохранение данных"
+            options = QtWidgets.QFileDialog.Options()
+            filename, _ = QtWidgets.QFileDialog.getSaveFileName(self, dialog_name, self.filedialog_path,
+                                                                 "All types of docs (*.pnt)", options=options)
+
+            if filename:
+                with open(filename, 'w', newline='') as File:
+                    json_Data = json.dumps(self.dict_data)
+                    File.write(json_Data)
+        except ResearchAppErrors as e:
+            print(e)
+            return exit_code
+
+    def load_point_logic(self):
+        exit_code = None
+        try:
+            dialog_name = "Загрузка данных"
+            options = QtWidgets.QFileDialog.Options()
+            filename, _ = QtWidgets.QFileDialog.getOpenFileName(self, dialog_name, self.filedialog_path,
+                                                                "All types of docs (*.pnt)", options=options)
+
+            if not filename:
+                exit_code = ErrorCodes.ERROR_FILE_NOT_LOADED
+                raise ResearchAppErrors("Файл не загружен.")
+
+            _, file_extension = os.path.splitext(filename)
+
+            if file_extension != '.pnt':
+                exit_code = ErrorCodes.ERROR_INVALID_FILE_FORMAT
+                raise ResearchAppErrors("Загружен файл неверного формата.")
+
+            if os.stat(filename).st_size == 0:
+                exit_code = ErrorCodes.ERROR_EMPTY_FILE
+                raise ResearchAppErrors("Загружен пустой файл - работа с ним невозможна.")
+
+            with open(filename, newline='') as File:
+                self.dict_data = json.load(File)
+                pechat_value = "Min: " + self.dict_data["Min:"] + "\tAvg: " + self.dict_data["Avg:"] + "\tMax: " + self.dict_data["Max:"]
+                print(pechat_value)
+                self.ValueJoinPointEdit.setText("Файлы успешно загружены. Можно считать объединение трехточек.")
+                self.ValueJoinPointEdit.setAlignment(Qt.AlignCenter)
+                self.ValueJoinPointEdit.setStyleSheet("border-radius: 20px;\n"
+                                                  "background-color: rgba(255, 255, 255, 50);\n"
+                                                  "font: 12pt \"Century Gothic\";\n"
+                                                  )
+        except ResearchAppErrors as e:
+            print(e)
+            return exit_code
+
+    def calc_join_point_logic(self):
+        print("vfkgl")
+
+    def keyPressEvent(self, event):
         if event.key() == QtCore.Qt.Key.Key_Escape:
             self.close()
