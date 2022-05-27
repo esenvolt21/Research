@@ -9,6 +9,7 @@ import os
 import json
 
 
+
 class ErrorCodes(Enum):
     ERROR_STR_ARRAY = 0,
     ERROR_TYPE_HISTOGRAM = 1,
@@ -637,36 +638,55 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
 
     def load_point_logic(self):
         exit_code = None
+        self.dict_data.clear()
         try:
+            json_data = {}
             dialog_name = "Загрузка данных"
             options = QtWidgets.QFileDialog.Options()
-            filename, _ = QtWidgets.QFileDialog.getOpenFileName(self, dialog_name, self.filedialog_path,
+            filenames, _ = QtWidgets.QFileDialog.getOpenFileNames(self, dialog_name, self.filedialog_path,
                                                                 "All types of docs (*.pnt)", options=options)
 
-            if not filename:
+            if not filenames:
                 exit_code = ErrorCodes.ERROR_FILE_NOT_LOADED
                 raise ResearchAppErrors("Файл не загружен.")
 
-            _, file_extension = os.path.splitext(filename)
+            for filename in filenames:
+                _, file_extension = os.path.splitext(filename)
 
-            if file_extension != '.pnt':
-                exit_code = ErrorCodes.ERROR_INVALID_FILE_FORMAT
-                raise ResearchAppErrors("Загружен файл неверного формата.")
+                if file_extension != '.pnt':
+                    exit_code = ErrorCodes.ERROR_INVALID_FILE_FORMAT
+                    raise ResearchAppErrors("Загружен файл неверного формата.")
 
-            if os.stat(filename).st_size == 0:
-                exit_code = ErrorCodes.ERROR_EMPTY_FILE
-                raise ResearchAppErrors("Загружен пустой файл - работа с ним невозможна.")
+                if os.stat(filename).st_size == 0:
+                    exit_code = ErrorCodes.ERROR_EMPTY_FILE
+                    raise ResearchAppErrors("Загружен пустой файл - работа с ним невозможна.")
 
-            with open(filename, newline='') as File:
-                self.dict_data = json.load(File)
-                pechat_value = "Min: " + self.dict_data["Min:"] + "\tAvg: " + self.dict_data["Avg:"] + "\tMax: " + self.dict_data["Max:"]
-                print(pechat_value)
-                self.ValueJoinPointEdit.setText("Файлы успешно загружены. Можно считать объединение трехточек.")
-                self.ValueJoinPointEdit.setAlignment(Qt.AlignCenter)
-                self.ValueJoinPointEdit.setStyleSheet("border-radius: 20px;\n"
-                                                  "background-color: rgba(255, 255, 255, 50);\n"
-                                                  "font: 12pt \"Century Gothic\";\n"
-                                                  )
+                with open(filename, newline='') as File:
+                    json_data = json.load(File)
+
+                    if "Min:" in self.dict_data:
+                        self.dict_data.setdefault("Min:", []).append(json_data["Min:"])
+                    else:
+                        self.dict_data["Min:"] = json_data["Min:"]
+
+                    if "Avg:" in self.dict_data:
+                        self.dict_data.setdefault("Avg:", []).append(json_data["Avg:"])
+                    else:
+                        self.dict_data["Avg:"] = json_data["Avg:"]
+
+                    if "Max:" in self.dict_data:
+                        self.dict_data.setdefault("Max:", []).append(json_data["Max:"])
+                    else:
+                        self.dict_data["Max:"] = json_data["Max:"]
+
+                    print(self.dict_data)
+
+                    self.ValueJoinPointEdit.setText("Файлы успешно загружены. Можно считать объединение трехточек.")
+                    self.ValueJoinPointEdit.setAlignment(Qt.AlignCenter)
+                    self.ValueJoinPointEdit.setStyleSheet("border-radius: 20px;\n"
+                                                      "background-color: rgba(255, 255, 255, 50);\n"
+                                                      "font: 12pt \"Century Gothic\";\n"
+                                                      )
         except ResearchAppErrors as e:
             print(e)
             return exit_code
