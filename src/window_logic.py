@@ -33,6 +33,7 @@ class ErrorCodes(Enum):
     ERROR_NOT_PROPERTY = 16
     ERROR_NOT_MONEY = 17
     ERROR_POINT_NOT_LOADED = 18
+    ERROR_EMPTY_PROPERTY = 19
 
 
 class ResearchCalcErrors(Exception):
@@ -104,8 +105,7 @@ class ResearchCalc:
             s3 = m3 - 3 * m1 * m2 + 2 * m1 ** 3
             s4 = m4 - 4 * m1 * m3 - 3 * m2 ** 2 + 12 * m1 ** 2 * m2 - 6 * m1 ** 4
             return [s1, s2, s3, s4, size]
-        except ResearchCalcErrors as e:
-            print(e)
+        except ResearchCalcErrors:
             return exit_code
 
     @staticmethod
@@ -163,8 +163,7 @@ class ResearchCalc:
                 raise ResearchCalcErrors("Сумма вероятностей не равна 1.")
 
             return [[x1, p1], [xs, p3], [x2, p2]]
-        except ResearchCalcErrors as e:
-            print(e)
+        except ResearchCalcErrors:
             return exit_code
 
 
@@ -208,7 +207,7 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
 
         # Таблица.
         self.table_model = QtGui.QStandardItemModel()
-        self.tableView.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+        self.tableView.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
         self.tableView.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
         self.tableView.setModel(self.table_model)
 
@@ -225,6 +224,10 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
         # Словарь для сохранения трехточки.
         self.pnt_list = []
         self.pnt_dict = {}
+
+        # Флаги сохранения трехточки.
+        self.point_flag = False
+        self.join_point_flag = False
 
     @staticmethod
     def output_style_in_qlineedit(obj: QtWidgets.QLineEdit, text: str):
@@ -262,6 +265,32 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
 
         return "Min: " + avg_minimal + "\tAvg: " + avg_middle + "\tMax: " + avg_maximal
 
+    @staticmethod
+    def show_message_box(title: str, text: str):
+        """
+        Функция для вывода сообщений оператору.
+
+        :param title: Заголовок сообщения.
+        :param text: Текст сообщения.
+        :return: None
+        """
+        msg_box = QtWidgets.QMessageBox()
+        if title == "Ошибка":
+            msg_box.setIcon(QtWidgets.QMessageBox.Critical)
+            msg_box.setWindowFlags(QtCore.Qt.FramelessWindowHint)
+            msg_box.setStyleSheet("border-radius: 20px;\n"
+                                  "background-color: rgba(255, 255, 188, 255);\n"
+                                  "font: 14pt \"Century Gothic\";\n")
+        elif title == "Информация" or title == "Предупреждение":
+            msg_box.setIcon(QtWidgets.QMessageBox.Critical)
+            msg_box.setWindowFlags(QtCore.Qt.FramelessWindowHint)
+            msg_box.setStyleSheet("border-radius: 10px;\n"
+                                  "background-color: rgba(255, 255, 188, 255);\n"
+                                  "font: 14pt \"Century Gothic\";\n")
+        msg_box.setWindowTitle(title)
+        msg_box.setText("<div align='top'>" + text)
+        msg_box.exec()
+
     def contextMenuEvent(self, event):
         """
         Создание контекстного меню для QTableView.
@@ -284,15 +313,27 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
         self.context_menu.addAction(equal_property)
         self.context_menu.addAction(lower_property)
         self.context_menu.addAction(add_as_property)
+        self.context_menu.setStyleSheet("background-color: rgba(235,193,255,255);"
+                                        "font: 10pt \"Century Gothic\";\n")
 
         indexes = self.tableView.selectionModel().selectedIndexes()
         is_digit = False
         is_letter = False
+        is_empty = False
         for idx in indexes:
-            if str(idx.data()).isdigit():
-                is_digit = True
+            if not idx.data():
+                is_empty = True
             else:
-                is_letter = True
+                if str(idx.data()).isdigit():
+                    is_digit = True
+                else:
+                    is_letter = True
+
+        if is_empty:
+            lower_property.setEnabled(False)
+            upper_property.setEnabled(False)
+            equal_property.setEnabled(False)
+            add_as_property.setEnabled(False)
 
         if not is_digit:
             lower_property.setEnabled(False)
@@ -365,6 +406,7 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
         # Добавленное свойство.
         added_prop_view = str(headers[indexes[-1].column()]) + ": "
         added_prop = ""
+
         # Проверка на числовое значение.
         if str(item).isdigit():
             # Добавление символа перед свойством.
@@ -421,12 +463,11 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
         exit_code = None
         try:
             if not self.tableView.model().columnCount() > 0:
-                self.output_style_in_qlineedit(self.propertylineEdit,"Таблица не загружена, добавление строк невозможно.")
+                self.show_message_box("Информация", "Таблица не загружена, добавление строк невозможно.")
                 exit_code = ErrorCodes.ERROR_TABLE_NOT_LOADED
                 raise ResearchAppErrors("Таблица не загружена, добавление строк невозможно.")
             self.tableView.model().insertRow(self.tableView.model().rowCount(QtCore.QModelIndex()))
-        except ResearchAppErrors as e:
-            print(e)
+        except ResearchAppErrors:
             return exit_code
 
     def load_button_logic(self):
@@ -443,19 +484,17 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
                                                                 "All types of docs (*.csv)", options=options)
 
             if not filename:
-                self.output_style_in_qlineedit(self.propertylineEdit, "Файл не загружен.")
-                exit_code = ErrorCodes.ERROR_FILE_NOT_LOADED
-                raise ResearchAppErrors("Файл не загружен.")
+                return
 
             _, file_extension = os.path.splitext(filename)
 
             if file_extension != '.csv':
-                self.output_style_in_qlineedit(self.propertylineEdit, "Загружен файл неверного формата.")
+                self.show_message_box("Ошибка", "Загружен файл неверного формата.")
                 exit_code = ErrorCodes.ERROR_INVALID_FILE_FORMAT
                 raise ResearchAppErrors("Загружен файл неверного формата.")
 
             if os.stat(filename).st_size == 0:
-                self.output_style_in_qlineedit(self.propertylineEdit, "Загружен пустой файл - работа с ним невозможна.")
+                self.show_message_box("Информация", "Загружен пустой файл - работа с ним невозможна.")
                 exit_code = ErrorCodes.ERROR_EMPTY_FILE
                 raise ResearchAppErrors("Загружен пустой файл - работа с ним невозможна.")
 
@@ -474,10 +513,9 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
                         self.table_model.appendRow(items)
                 self.tableView.setModel(self.table_model)
             self.tableView.setStyleSheet("border-radius: 20px;\n"
-                                         "background-color: rgb(255, 255, 255);\n"
+                                         "background-color: rgba(255, 255, 255, 50);\n"
                                          "font: 10pt \"Century Gothic\";")
-        except ResearchAppErrors as e:
-            print(e)
+        except ResearchAppErrors:
             return exit_code
 
     def delete_button_logic(self):
@@ -489,21 +527,20 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
         exit_code = None
         try:
             if not self.tableView.model().columnCount() > 0:
-                self.output_style_in_qlineedit(self.propertylineEdit, "Таблица не загружена, удаление строк невозможно.")
+                self.show_message_box("Информация", "Таблица не загружена, удаление строк невозможно.")
                 exit_code = ErrorCodes.ERROR_TABLE_NOT_LOADED
                 raise ResearchAppErrors("Таблица не загружена, удаление строк невозможно.")
 
             rows = self.tableView.selectionModel().selectedIndexes()
 
             if not rows:
-                self.output_style_in_qlineedit(self.propertylineEdit, "Не выбрана строка для удаления.")
+                self.show_message_box("Информация", "Не выбрана строка для удаления.")
                 exit_code = ErrorCodes.ERROR_NO_LINE_SELECTED
                 raise ResearchAppErrors("Не выбрана строка для удаления.")
 
             for row in rows:
                 self.win_manager.delete_rows.emit(row.row(), len(rows))
-        except ResearchAppErrors as e:
-            print(e)
+        except ResearchAppErrors:
             return exit_code
 
     def save_button_logic(self):
@@ -515,7 +552,7 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
         exit_code = None
         try:
             if not self.tableView.model().columnCount() > 0:
-                self.output_style_in_qlineedit(self.propertylineEdit, "Таблица не загружена и не создана - ее сохранение невозможно.")
+                self.show_message_box("Информация", "Таблица не загружена и не создана - ее сохранение невозможно.")
                 exit_code = ErrorCodes.ERROR_TABLE_NOT_LOADED
                 raise ResearchAppErrors("Таблица не загружена и не создана - ее сохранение невозможно.")
 
@@ -544,8 +581,7 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
                             index = model.index(row, column)
                             row_data.append(model.data(index))
                         writer.writerow(row_data)
-        except ResearchAppErrors as e:
-            print(e)
+        except ResearchAppErrors:
             return exit_code
 
     def calc_point_logic(self):
@@ -557,7 +593,8 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
         exit_code = None
         try:
             if not self.properties_indexes:
-                self.output_style_in_qlineedit(self.ValuePointEdit, "Не выбрано свойство для расчета трехточки.")
+                self.point_flag = False
+                self.show_message_box("Информация", "Не выбрано свойство для расчета трехточки.")
                 exit_code = ErrorCodes.ERROR_NOT_PROPERTY
                 raise ResearchAppErrors("Не выбрано свойство для расчета трехточки.")
 
@@ -578,6 +615,7 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
                     wage_col = headers.index(name)
 
             if wage_col is None:
+                self.point_flag = False
                 self.output_style_in_qlineedit(self.ValuePointEdit, "Внимание! В таблице нет столбца \"Заработная плата\" - расчет невозможен.")
                 exit_code = ErrorCodes.ERROR_NOT_MONEY
                 raise ResearchAppErrors("Внимание! В таблице нет столбца ЗП(заработная плата).")
@@ -622,6 +660,7 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
                 three_points = self.calculator.calc_three_points(semi)
 
                 if isinstance(three_points, ErrorCodes):
+                    self.point_flag = False
                     return
 
                 avg_minimal = "[" + str(three_points[0][0]) + \
@@ -637,10 +676,11 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
 
                 # Вывод информации в поля.
                 self.output_style_in_qlineedit(self.ValuePointEdit, self.threepoint_formatting_for_output(three_points))
+                self.point_flag = True
             else:
                 self.output_style_in_qlineedit(self.ValuePointEdit, "Внимание! Расчёт не возможен.")
-        except ResearchAppErrors as e:
-            print(e)
+                self.point_flag = False
+        except ResearchAppErrors:
             return exit_code
 
     def close_logic(self):
@@ -659,30 +699,37 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
         """
         exit_code = None
         try:
-            str_point = self.ValuePointEdit.text()
-            if not len(str_point) > 0:
-                self.output_style_in_qlineedit(self.ValuePointEdit, "Внимание! Расчетов нет - сохранение невозможно.")
-                exit_code = ErrorCodes.ERROR_POINT_NOT_LOADED
-                raise ResearchAppErrors("Расчетов нет - сохранение невозможно.")
+            if self.point_flag:
+                str_point = self.ValuePointEdit.text()
+                if not len(str_point) > 0:
+                    self.output_style_in_qlineedit(self.ValuePointEdit, "Внимание! Расчетов нет - сохранение невозможно.")
+                    exit_code = ErrorCodes.ERROR_POINT_NOT_LOADED
+                    raise ResearchAppErrors("Расчетов нет - сохранение невозможно.")
 
-            dialog_name = "Сохранение данных"
-            options = QtWidgets.QFileDialog.Options()
-            filename, _ = QtWidgets.QFileDialog.getSaveFileName(self, dialog_name, self.filedialog_path,
-                                                                 "All types of docs (*.pnt)", options=options)
+                dialog_name = "Сохранение данных"
+                options = QtWidgets.QFileDialog.Options()
+                filename, _ = QtWidgets.QFileDialog.getSaveFileName(self, dialog_name, self.filedialog_path,
+                                                                     "All types of docs (*.pnt)", options=options)
 
-            if filename:
-                with open(filename, 'w', newline='') as File:
-                    json_Data = json.dumps(self.pnt_dict)
-                    File.write(json_Data)
-        except ResearchAppErrors as e:
-            print(e)
+                if filename:
+                    with open(filename, 'w', newline='') as File:
+                        json_Data = json.dumps(self.pnt_dict)
+                        File.write(json_Data)
+            else:
+                self.show_message_box("Информация", "Внимание! Расчетов нет - сохранение невозможно.")
+
+        except ResearchAppErrors:
             return exit_code
 
-    def _parse_pnt_values(self, value: str) -> list:
+    def _parse_pnt_values(self, value: str) -> list | ErrorCodes:
         """ Перевести строку со списком в список чисел """
-        left = float(re.sub(r"\[([\d.].*), ([\d.].*)\]", r"\1", value))
-        right = float(re.sub(r"\[([\d.].*), ([\d.].*)\]", r"\2", value))
-        return [left, right]
+        try:
+            left = float(re.sub(r"\[([\d.].*), ([\d.].*)\]", r"\1", value))
+            right = float(re.sub(r"\[([\d.].*), ([\d.].*)\]", r"\2", value))
+            return [left, right]
+        except ValueError:
+            exit_code = ErrorCodes.ERROR_NOT_NUMERIC
+            return exit_code
 
     def calc_join_point_logic(self):
         """
@@ -699,6 +746,7 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
                                                                   "All types of docs (*.pnt)", options=options)
 
             if not filenames:
+                self.join_point_flag = False
                 self.output_style_in_qlineedit(self.ValueJoinPointEdit, "Файл не загружен.")
                 exit_code = ErrorCodes.ERROR_FILE_NOT_LOADED
                 raise ResearchAppErrors("Файл не загружен.")
@@ -707,26 +755,41 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
                 _, file_extension = os.path.splitext(filename)
 
                 if file_extension != '.pnt':
+                    self.join_point_flag = False
                     self.output_style_in_qlineedit(self.ValueJoinPointEdit, "Загружен файл неверного формата.")
                     exit_code = ErrorCodes.ERROR_INVALID_FILE_FORMAT
                     raise ResearchAppErrors("Загружен файл неверного формата.")
 
                 if os.stat(filename).st_size == 0:
+                    self.join_point_flag = False
                     self.output_style_in_qlineedit(self.ValueJoinPointEdit, "Загружен пустой файл - работа с ним невозможна.")
                     exit_code = ErrorCodes.ERROR_EMPTY_FILE
                     raise ResearchAppErrors("Загружен пустой файл - работа с ним невозможна.")
 
                 with open(filename, newline='') as File:
-                    json_data = json.load(File)
-                File.close()
+                    try:
+                        json_data = json.load(File)
+                    except json.JSONDecodeError:
+                        self.join_point_flag = False
+                        exit_code = ErrorCodes.ERROR_INVALID_FILE_FORMAT
+                        return exit_code
 
                 for k in pnt_keys:
                     if k not in json_data:
+                        self.join_point_flag = False
                         self.output_style_in_qlineedit(self.ValueJoinPointEdit, "Отсутствует ожидаемый ключ в загруженном файле.")
                         exit_code = ErrorCodes.ERROR_POINT_NOT_LOADED
                         raise ResearchAppErrors("Отсутствует ожидаемый ключ в загруженном файле.")
 
-                    self.pnt_list.append(self._parse_pnt_values(json_data[k]))
+                    parsed_values = self._parse_pnt_values(json_data[k])
+                    if isinstance(parsed_values, ErrorCodes):
+                        self.join_point_flag = False
+                        self.output_style_in_qlineedit(self.ValueJoinPointEdit,
+                                                       "Ошибка в формате данных загруженной трёхточки.")
+                        exit_code = ErrorCodes.ERROR_NOT_NUMERIC
+                        raise ResearchAppErrors("Ошибка в формате данных загруженной трёхточки.")
+
+                    self.pnt_list.append(parsed_values)
 
             if self.pnt_list:
                 semi = self.calculator.calc_semi(self.pnt_list)
@@ -736,8 +799,10 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
                     return
 
                 self.output_style_in_qlineedit(self.ValueJoinPointEdit, self.threepoint_formatting_for_output(point))
-        except ResearchAppErrors as e:
-            print(e)
+                self.join_point_flag = True
+            else:
+                self.join_point_flag = False
+        except ResearchAppErrors:
             return exit_code
 
     def save_result_logic(self):
@@ -748,23 +813,25 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
         """
         exit_code = None
         try:
-            str_point = self.ValueJoinPointEdit.text()
-            if not len(str_point) > 0:
-                self.output_style_in_qlineedit(self.ValueJoinPointEdit, "Внимание! Расчетов нет - сохранение невозможно.")
-                exit_code = ErrorCodes.ERROR_POINT_NOT_LOADED
-                raise ResearchAppErrors("Расчетов нет - сохранение невозможно.")
+            if self.join_point_flag:
+                str_point = self.ValueJoinPointEdit.text()
+                if not len(str_point) > 0:
+                    self.show_message_box("Информация", "Внимание! Расчетов нет - сохранение невозможно.")
+                    exit_code = ErrorCodes.ERROR_POINT_NOT_LOADED
+                    raise ResearchAppErrors("Расчетов нет - сохранение невозможно.")
 
-            dialog_name = "Сохранение данных"
-            options = QtWidgets.QFileDialog.Options()
-            filename, _ = QtWidgets.QFileDialog.getSaveFileName(self, dialog_name, self.filedialog_path,
-                                                                 "All types of docs (*.pnt)", options=options)
+                dialog_name = "Сохранение данных"
+                options = QtWidgets.QFileDialog.Options()
+                filename, _ = QtWidgets.QFileDialog.getSaveFileName(self, dialog_name, self.filedialog_path,
+                                                                     "All types of docs (*.pnt)", options=options)
 
-            if filename:
-                with open(filename, 'w', newline='') as File:
-                    json_Data = json.dumps(self.pnt_dict)
-                    File.write(json_Data)
-        except ResearchAppErrors as e:
-            print(e)
+                if filename:
+                    with open(filename, 'w', newline='') as File:
+                        json_Data = json.dumps(self.pnt_dict)
+                        File.write(json_Data)
+            else:
+                self.show_message_box("Информация", "Внимание! Расчетов нет - сохранение невозможно.")
+        except ResearchAppErrors:
             return exit_code
 
     def keyPressEvent(self, event):

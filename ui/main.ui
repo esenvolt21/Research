@@ -231,7 +231,8 @@ border-image: url(:/images/resources/Group 85.png);
           </size>
          </property>
          <property name="styleSheet">
-          <string notr="true">background-color: rgb(255, 255, 255);
+          <string notr="true">border-radius: 20px;
+background-color: rgba(255, 255, 255,50);
 font: 10pt &quot;Century Gothic&quot;;</string>
          </property>
         </widget>
