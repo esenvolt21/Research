@@ -754,48 +754,6 @@ text-align: center
             </spacer>
            </item>
            <item>
-            <widget class="QPushButton" name="LoadPointButton">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="minimumSize">
-              <size>
-               <width>400</width>
-               <height>40</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>400</width>
-               <height>40</height>
-              </size>
-             </property>
-             <property name="styleSheet">
-              <string notr="true">QPushButton#LoadPointButton{
-border-radius: 20px;
-background-color: qlineargradient(spread:pad, x1:0, y1:0.483, x2:1, y2:0.523, stop:0 rgba(255, 255, 85, 255), stop:1 rgba(255, 255, 255, 255));
-color:rgba(0, 0, 0, 210);
-font: 12pt &quot;Century Gothic&quot;;
-}
-
-QPushButton#LoadPointButton:hover{
-background-color: qlineargradient(spread:pad, x1:0.985, y1:0.506, x2:0.00995025, y2:0.495, stop:0 rgba(255, 255, 85, 255), stop:1 rgba(255, 255, 255, 255));
-}
-
-QPushButton#LoadPointButton:pressed{
-background-color: rgba(255, 255, 85, 255);
-}
-</string>
-             </property>
-             <property name="text">
-              <string>Загрузить трехточку</string>
-             </property>
-            </widget>
-           </item>
-           <item>
             <widget class="QPushButton" name="CalcPointButton">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -835,6 +793,48 @@ background-color: rgba(255, 255, 85, 255);
              </property>
              <property name="text">
               <string>Рассчитать объединение трехточек</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="SaveResultButton">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>400</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>400</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">QPushButton#SaveResultButton{
+border-radius: 20px;
+background-color: qlineargradient(spread:pad, x1:0, y1:0.483, x2:1, y2:0.523, stop:0 rgba(255, 255, 85, 255), stop:1 rgba(255, 255, 255, 255));
+color:rgba(0, 0, 0, 210);
+font: 12pt &quot;Century Gothic&quot;;
+}
+
+QPushButton#SaveResultButton:hover{
+background-color: qlineargradient(spread:pad, x1:0.985, y1:0.506, x2:0.00995025, y2:0.495, stop:0 rgba(255, 255, 85, 255), stop:1 rgba(255, 255, 255, 255));
+}
+
+QPushButton#SaveResultButton:pressed{
+background-color: rgba(255, 255, 85, 255);
+}
+</string>
+             </property>
+             <property name="text">
+              <string>Сохранить результат</string>
              </property>
             </widget>
            </item>

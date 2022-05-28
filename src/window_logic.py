@@ -2,12 +2,15 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtCore import Qt
 from enum import Enum
 
+from PyQt5.QtWidgets import QDesktopWidget
+
 import main_app
 import csv
 import math
 import os
 import json
-
+import re
+from config import *
 
 
 class ErrorCodes(Enum):
@@ -176,6 +179,12 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
     def __init__(self):
         QtWidgets.QMainWindow.__init__(self)
         self.setupUi(self)
+        qr = self.frameGeometry()
+        cp = QDesktopWidget().availableGeometry().center()
+        qr.moveCenter(cp)
+        self.move(qr.topLeft())
+        self.setWindowFlags(QtCore.Qt.FramelessWindowHint)
+        self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
         self.filedialog_path = '../resources'
 
         # Обработчики кнопок.
@@ -192,10 +201,10 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
         self.CloseButton.clicked.connect(self.close_logic)
         self.SavePointButton.clicked.connect(self.save_point_logic)
         self.SavePointButton.setGraphicsEffect(QtWidgets.QGraphicsDropShadowEffect(blurRadius=25, xOffset=3, yOffset=3))
-        self.LoadPointButton.clicked.connect(self.load_point_logic)
-        self.LoadPointButton.setGraphicsEffect(QtWidgets.QGraphicsDropShadowEffect(blurRadius=15, xOffset=-3, yOffset=3))
         self.CalcPointButton.clicked.connect(self.calc_join_point_logic)
         self.CalcPointButton.setGraphicsEffect(QtWidgets.QGraphicsDropShadowEffect(blurRadius=15, xOffset=3, yOffset=3))
+        self.SaveResultButton.clicked.connect(self.save_result_logic)
+        self.SaveResultButton.setGraphicsEffect(QtWidgets.QGraphicsDropShadowEffect(blurRadius=15, xOffset=-3, yOffset=3))
 
         # Таблица.
         self.table_model = QtGui.QStandardItemModel()
@@ -214,7 +223,44 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
         self.properties_indexes = {}
 
         # Словарь для сохранения трехточки.
-        self.dict_data = {}
+        self.pnt_list = []
+        self.pnt_dict = {}
+
+    @staticmethod
+    def output_style_in_qlineedit(obj: QtWidgets.QLineEdit, text: str):
+        """
+        Создание единого стиля для вывода в QLineEdit.
+
+        :param obj: Объект, куда выводить данные.
+        :param text: Строка, которую необходимо вывести.
+        :return: None
+        """
+        obj.setText(text)
+        obj.setAlignment(Qt.AlignCenter)
+        obj.setStyleSheet("border-radius: 20px;\n"
+                          "background-color: rgba(255, 255, 255, 50);\n"
+                          "font: 12pt \"Century Gothic\";\n"
+                        )
+
+    @staticmethod
+    def threepoint_formatting_for_output(threepoint: list) -> str:
+        """
+        Создание единого стиля для вывода трехточек.
+
+        :param threepoint: Данные после расчета функции трехточки.
+        :return: str вида Min: [число, вероятность] Avg: [число, вероятность] Max: [число, вероятность]
+        """
+        float_precision_1 = '.0f'
+        float_precision_2 = '.2f'
+
+        avg_minimal = "[" + str(format(threepoint[0][0], float_precision_1)) + \
+                      ", " + str(format(threepoint[0][1], float_precision_2)) + "]"
+        avg_middle = "[" + str(format(threepoint[1][0], float_precision_1)) + \
+                     ", " + str(format(threepoint[1][1], float_precision_2)) + "]"
+        avg_maximal = "[" + str(format(threepoint[2][0], float_precision_1)) + \
+                      ", " + str(format(threepoint[2][1], float_precision_2)) + "]"
+
+        return "Min: " + avg_minimal + "\tAvg: " + avg_middle + "\tMax: " + avg_maximal
 
     def contextMenuEvent(self, event):
         """
@@ -330,12 +376,8 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
             added_prop_view += item
 
         # Отображение текста в поле.
-        self.propertylineEdit.insert(added_prop_view)
-        self.propertylineEdit.setAlignment(Qt.AlignCenter)
-        self.propertylineEdit.setStyleSheet("border-radius: 20px;\n"
-                                            "background-color: rgba(255, 255, 255, 50);\n"
-                                            "font: 12pt \"Century Gothic\";\n"
-                                            )
+        self.output_style_in_qlineedit(self.propertylineEdit, added_prop_view)
+
         # Добавление свойства в словарь: (Строка, Столбец): Свойство.
         self.properties_indexes[(indexes[-1].row(), indexes[-1].column())] = added_prop
 
@@ -379,6 +421,7 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
         exit_code = None
         try:
             if not self.tableView.model().columnCount() > 0:
+                self.output_style_in_qlineedit(self.propertylineEdit,"Таблица не загружена, добавление строк невозможно.")
                 exit_code = ErrorCodes.ERROR_TABLE_NOT_LOADED
                 raise ResearchAppErrors("Таблица не загружена, добавление строк невозможно.")
             self.tableView.model().insertRow(self.tableView.model().rowCount(QtCore.QModelIndex()))
@@ -400,16 +443,19 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
                                                                 "All types of docs (*.csv)", options=options)
 
             if not filename:
+                self.output_style_in_qlineedit(self.propertylineEdit, "Файл не загружен.")
                 exit_code = ErrorCodes.ERROR_FILE_NOT_LOADED
                 raise ResearchAppErrors("Файл не загружен.")
 
             _, file_extension = os.path.splitext(filename)
 
             if file_extension != '.csv':
+                self.output_style_in_qlineedit(self.propertylineEdit, "Загружен файл неверного формата.")
                 exit_code = ErrorCodes.ERROR_INVALID_FILE_FORMAT
                 raise ResearchAppErrors("Загружен файл неверного формата.")
 
             if os.stat(filename).st_size == 0:
+                self.output_style_in_qlineedit(self.propertylineEdit, "Загружен пустой файл - работа с ним невозможна.")
                 exit_code = ErrorCodes.ERROR_EMPTY_FILE
                 raise ResearchAppErrors("Загружен пустой файл - работа с ним невозможна.")
 
@@ -443,12 +489,14 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
         exit_code = None
         try:
             if not self.tableView.model().columnCount() > 0:
+                self.output_style_in_qlineedit(self.propertylineEdit, "Таблица не загружена, удаление строк невозможно.")
                 exit_code = ErrorCodes.ERROR_TABLE_NOT_LOADED
                 raise ResearchAppErrors("Таблица не загружена, удаление строк невозможно.")
 
             rows = self.tableView.selectionModel().selectedIndexes()
 
             if not rows:
+                self.output_style_in_qlineedit(self.propertylineEdit, "Не выбрана строка для удаления.")
                 exit_code = ErrorCodes.ERROR_NO_LINE_SELECTED
                 raise ResearchAppErrors("Не выбрана строка для удаления.")
 
@@ -467,6 +515,7 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
         exit_code = None
         try:
             if not self.tableView.model().columnCount() > 0:
+                self.output_style_in_qlineedit(self.propertylineEdit, "Таблица не загружена и не создана - ее сохранение невозможно.")
                 exit_code = ErrorCodes.ERROR_TABLE_NOT_LOADED
                 raise ResearchAppErrors("Таблица не загружена и не создана - ее сохранение невозможно.")
 
@@ -501,13 +550,14 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
 
     def calc_point_logic(self):
         """
-        Обработчик нажатия на кнопку "Рассчитать".
+        Обработчик нажатия на кнопку "Рассчитать трехточку".
 
         :return: None
         """
         exit_code = None
         try:
             if not self.properties_indexes:
+                self.output_style_in_qlineedit(self.ValuePointEdit, "Не выбрано свойство для расчета трехточки.")
                 exit_code = ErrorCodes.ERROR_NOT_PROPERTY
                 raise ResearchAppErrors("Не выбрано свойство для расчета трехточки.")
 
@@ -528,12 +578,7 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
                     wage_col = headers.index(name)
 
             if wage_col is None:
-                self.ValuePointEdit.setText("Внимание! В таблице нет столбца \"Заработная плата\" - расчет невозможен.")
-                self.ValuePointEdit.setAlignment(Qt.AlignCenter)
-                self.ValuePointEdit.setStyleSheet("border-radius: 20px;\n"
-                                                    "background-color: rgba(255, 255, 255, 50);\n"
-                                                    "font: 12pt \"Century Gothic\";\n"
-                                                    )
+                self.output_style_in_qlineedit(self.ValuePointEdit, "Внимание! В таблице нет столбца \"Заработная плата\" - расчет невозможен.")
                 exit_code = ErrorCodes.ERROR_NOT_MONEY
                 raise ResearchAppErrors("Внимание! В таблице нет столбца ЗП(заработная плата).")
 
@@ -576,50 +621,47 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
                 semi = self.calculator.calc_semi(correct_wage)
                 three_points = self.calculator.calc_three_points(semi)
 
-                float_precision = '.2f'
-                avg_minimal = "[" + str(format(three_points[0][0], float_precision)) + \
-                              ", " + str(format(three_points[0][1], float_precision)) + "]"
-                avg_middle = "[" + str(format(three_points[1][0], float_precision)) + \
-                             ", " + str(format(three_points[1][1], float_precision)) + "]"
-                avg_maximal = "[" + str(format(three_points[2][0], float_precision)) + \
-                              ", " + str(format(three_points[2][1], float_precision)) + "]"
+                if isinstance(three_points, ErrorCodes):
+                    return
 
-                self.dict_data = {"Min:": avg_minimal,
-                            "Avg:": avg_middle,
-                            "Max:": avg_maximal}
+                avg_minimal = "[" + str(three_points[0][0]) + \
+                              ", " + str(three_points[0][1]) + "]"
+                avg_middle = "[" + str(three_points[1][0]) + \
+                             ", " + str(three_points[1][1]) + "]"
+                avg_maximal = "[" + str(three_points[2][0]) + \
+                              ", " + str(three_points[2][1]) + "]"
+
+                self.pnt_dict = {"Min": avg_minimal,
+                                  "Avg": avg_middle,
+                                  "Max": avg_maximal}
 
                 # Вывод информации в поля.
-                self.ValuePointEdit.setText("Min: " + avg_minimal + "\tAvg: " + avg_middle + "\tMax: " + avg_maximal)
-                self.ValuePointEdit.setAlignment(Qt.AlignCenter)
-                self.ValuePointEdit.setStyleSheet("border-radius: 20px;\n"
-                                                    "background-color: rgba(255, 255, 255, 50);\n"
-                                                    "font: 12pt \"Century Gothic\";\n"
-                                                )
+                self.output_style_in_qlineedit(self.ValuePointEdit, self.threepoint_formatting_for_output(three_points))
             else:
-                self.ValuePointEdit.setText("Внимание! Расчёт не возможен.")
-                self.ValuePointEdit.setAlignment(Qt.AlignCenter)
-                self.ValuePointEdit.setStyleSheet("border-radius: 20px;\n"
-                                                  "background-color: rgba(255, 255, 255, 50);\n"
-                                                  "font: 12pt \"Century Gothic\";\n"
-                                                  )
+                self.output_style_in_qlineedit(self.ValuePointEdit, "Внимание! Расчёт не возможен.")
         except ResearchAppErrors as e:
             print(e)
             return exit_code
 
     def close_logic(self):
+        """
+        Обработчик нажатия на кнопку "Закрыть".
+
+        :return: None
+        """
         self.close()
 
     def save_point_logic(self):
+        """
+        Обработчик нажатия на кнопку "Сохранить трехточку".
+
+        :return: None
+        """
         exit_code = None
         try:
             str_point = self.ValuePointEdit.text()
             if not len(str_point) > 0:
-                self.ValuePointEdit.setText("Внимание! Расчетов нет - сохранение невозможно.")
-                self.ValuePointEdit.setAlignment(Qt.AlignCenter)
-                self.ValuePointEdit.setStyleSheet("border-radius: 20px;\n"
-                                                   "background-color: rgba(255, 255, 255, 50);\n"
-                                                  "font: 12pt \"Century Gothic\";\n"
-                                                  )
+                self.output_style_in_qlineedit(self.ValuePointEdit, "Внимание! Расчетов нет - сохранение невозможно.")
                 exit_code = ErrorCodes.ERROR_POINT_NOT_LOADED
                 raise ResearchAppErrors("Расчетов нет - сохранение невозможно.")
 
@@ -630,21 +672,31 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
 
             if filename:
                 with open(filename, 'w', newline='') as File:
-                    json_Data = json.dumps(self.dict_data)
+                    json_Data = json.dumps(self.pnt_dict)
                     File.write(json_Data)
         except ResearchAppErrors as e:
             print(e)
             return exit_code
 
-    def load_point_logic(self):
+    def _parse_pnt_values(self, value: str) -> list:
+        """ Перевести строку со списком в список чисел """
+        left = float(re.sub(r"\[([\d.].*), ([\d.].*)\]", r"\1", value))
+        right = float(re.sub(r"\[([\d.].*), ([\d.].*)\]", r"\2", value))
+        return [left, right]
+
+    def calc_join_point_logic(self):
+        """
+            Обработчик нажатия на кнопку "Рассчитать объединение трехточек".
+
+            :return: None
+        """
         exit_code = None
-        self.dict_data.clear()
+        self.pnt_list.clear()
         try:
-            json_data = {}
             dialog_name = "Загрузка данных"
             options = QtWidgets.QFileDialog.Options()
             filenames, _ = QtWidgets.QFileDialog.getOpenFileNames(self, dialog_name, self.filedialog_path,
-                                                                "All types of docs (*.pnt)", options=options)
+                                                                  "All types of docs (*.pnt)", options=options)
 
             if not filenames:
                 exit_code = ErrorCodes.ERROR_FILE_NOT_LOADED
@@ -663,36 +715,53 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
 
                 with open(filename, newline='') as File:
                     json_data = json.load(File)
+                File.close()
 
-                    if "Min:" in self.dict_data:
-                        self.dict_data.setdefault("Min:", []).append(json_data["Min:"])
-                    else:
-                        self.dict_data["Min:"] = json_data["Min:"]
+                for k in pnt_keys:
+                    if k not in json_data:
+                        exit_code = ErrorCodes.ERROR_POINT_NOT_LOADED
+                        raise ResearchAppErrors("Отсутствует ожидаемый ключ в загруженном файле.")
 
-                    if "Avg:" in self.dict_data:
-                        self.dict_data.setdefault("Avg:", []).append(json_data["Avg:"])
-                    else:
-                        self.dict_data["Avg:"] = json_data["Avg:"]
+                    self.pnt_list.append(self._parse_pnt_values(json_data[k]))
 
-                    if "Max:" in self.dict_data:
-                        self.dict_data.setdefault("Max:", []).append(json_data["Max:"])
-                    else:
-                        self.dict_data["Max:"] = json_data["Max:"]
+            if self.pnt_list:
+                semi = self.calculator.calc_semi(self.pnt_list)
+                point = self.calculator.calc_three_points(semi)
 
-                    print(self.dict_data)
+                if isinstance(point, ErrorCodes):
+                    return
 
-                    self.ValueJoinPointEdit.setText("Файлы успешно загружены. Можно считать объединение трехточек.")
-                    self.ValueJoinPointEdit.setAlignment(Qt.AlignCenter)
-                    self.ValueJoinPointEdit.setStyleSheet("border-radius: 20px;\n"
-                                                      "background-color: rgba(255, 255, 255, 50);\n"
-                                                      "font: 12pt \"Century Gothic\";\n"
-                                                      )
+                self.output_style_in_qlineedit(self.ValueJoinPointEdit, self.threepoint_formatting_for_output(point))
         except ResearchAppErrors as e:
             print(e)
             return exit_code
 
-    def calc_join_point_logic(self):
-        print("vfkgl")
+    def save_result_logic(self):
+        """
+        Обработчик нажатия на кнопку "Сохранить результат".
+
+        :return: None
+        """
+        exit_code = None
+        try:
+            str_point = self.ValueJoinPointEdit.text()
+            if not len(str_point) > 0:
+                self.output_style_in_qlineedit(self.ValueJoinPointEdit, "Внимание! Расчетов нет - сохранение невозможно.")
+                exit_code = ErrorCodes.ERROR_POINT_NOT_LOADED
+                raise ResearchAppErrors("Расчетов нет - сохранение невозможно.")
+
+            dialog_name = "Сохранение данных"
+            options = QtWidgets.QFileDialog.Options()
+            filename, _ = QtWidgets.QFileDialog.getSaveFileName(self, dialog_name, self.filedialog_path,
+                                                                 "All types of docs (*.pnt)", options=options)
+
+            if filename:
+                with open(filename, 'w', newline='') as File:
+                    json_Data = json.dumps(self.pnt_dict)
+                    File.write(json_Data)
+        except ResearchAppErrors as e:
+            print(e)
+            return exit_code
 
     def keyPressEvent(self, event):
         if event.key() == QtCore.Qt.Key.Key_Escape:
