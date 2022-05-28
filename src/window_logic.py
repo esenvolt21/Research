@@ -499,22 +499,27 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
                 raise ResearchAppErrors("Загружен пустой файл - работа с ним невозможна.")
 
             self.table_model.clear()
-            with open(filename, newline='') as File:
-                reader = csv.reader(File)
-                for i, row in enumerate(reader):
-                    if i == 0:
-                        # Добавление названий колонок.
-                        self.table_model.setHorizontalHeaderLabels(row)
-                    else:
-                        # Добавление строк данных.
-                        items = []
-                        for field in row:
-                            items.append(QtGui.QStandardItem(field.strip()))
-                        self.table_model.appendRow(items)
-                self.tableView.setModel(self.table_model)
-            self.tableView.setStyleSheet("border-radius: 20px;\n"
-                                         "background-color: rgba(255, 255, 255, 50);\n"
-                                         "font: 10pt \"Century Gothic\";")
+            try:
+                with open(filename, newline='') as File:
+                    reader = csv.reader(File)
+
+                    for i, row in enumerate(reader):
+                        if i == 0:
+                            # Добавление названий колонок.
+                            self.table_model.setHorizontalHeaderLabels(row)
+                        else:
+                            # Добавление строк данных.
+                            items = []
+                            for field in row:
+                                items.append(QtGui.QStandardItem(field.strip()))
+                            self.table_model.appendRow(items)
+                    self.tableView.setModel(self.table_model)
+                    self.tableView.setStyleSheet("border-radius: 20px;\n"
+                                             "background-color: rgba(255, 255, 255, 50);\n"
+                                             "font: 10pt \"Century Gothic\";")
+            except Exception:
+                exit_code = ErrorCodes.ERROR_INVALID_FILE_FORMAT
+                return exit_code
         except ResearchAppErrors:
             return exit_code
 
@@ -769,7 +774,7 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
                 with open(filename, newline='') as File:
                     try:
                         json_data = json.load(File)
-                    except json.JSONDecodeError:
+                    except Exception:
                         self.join_point_flag = False
                         exit_code = ErrorCodes.ERROR_INVALID_FILE_FORMAT
                         return exit_code
