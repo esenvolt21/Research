@@ -699,6 +699,7 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
                                                                   "All types of docs (*.pnt)", options=options)
 
             if not filenames:
+                self.output_style_in_qlineedit(self.ValueJoinPointEdit, "Файл не загружен.")
                 exit_code = ErrorCodes.ERROR_FILE_NOT_LOADED
                 raise ResearchAppErrors("Файл не загружен.")
 
@@ -706,10 +707,12 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
                 _, file_extension = os.path.splitext(filename)
 
                 if file_extension != '.pnt':
+                    self.output_style_in_qlineedit(self.ValueJoinPointEdit, "Загружен файл неверного формата.")
                     exit_code = ErrorCodes.ERROR_INVALID_FILE_FORMAT
                     raise ResearchAppErrors("Загружен файл неверного формата.")
 
                 if os.stat(filename).st_size == 0:
+                    self.output_style_in_qlineedit(self.ValueJoinPointEdit, "Загружен пустой файл - работа с ним невозможна.")
                     exit_code = ErrorCodes.ERROR_EMPTY_FILE
                     raise ResearchAppErrors("Загружен пустой файл - работа с ним невозможна.")
 
@@ -719,6 +722,7 @@ class ResearchApp(QtWidgets.QMainWindow, main_app.Ui_MainWindow):
 
                 for k in pnt_keys:
                     if k not in json_data:
+                        self.output_style_in_qlineedit(self.ValueJoinPointEdit, "Отсутствует ожидаемый ключ в загруженном файле.")
                         exit_code = ErrorCodes.ERROR_POINT_NOT_LOADED
                         raise ResearchAppErrors("Отсутствует ожидаемый ключ в загруженном файле.")
 
